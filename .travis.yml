@@ -1,0 +1,25 @@
+sudo: false
+language: java
+jdk:
+- oraclejdk8
+script:
+- mvn -U -B clean compile findbugs:check package
+addons:
+  apt:
+    packages:
+    - libc6:i386
+deploy:
+  - provider: releases
+    prerelease: true
+    file:
+      - target/fdsm.jar
+      - target/fdsm.exe
+    api-key:
+      secure: "ek57TFm3d5cmDjQJBjmcsu2+nb0LRX6Et2N4K7x7Z77CLFRBDkSpfWszHTPuPv8Ba9Gp9ZxjDTUYkzA6tscbpxLvpr6BY3hstkxbGyV+70hY+0kGycD9WtwHGON4a0Vxyo2rrC5xxTllktl6u/+PTXmyLwUTvDZHFlMWtKTo1+AGgscjuiQFMlj4FLSL/qcCvSs2IeoBxKqOzVuJ2ptAD/Q3X4ppKxQvFAO/6v6Ydf1n7rMCXmJmBNv90DI3Vff/eGF7EanmzCk9wCFj+mvZvtQq407fO6guv2wItKkVPCjskbxCBZ2346qq/4DuGkw4C4GOXqUAFhtxYVeWTAW3Jc+sICUuB8MVZrL84jqaAJER8oUrmcqg9LjuzDAi3dtqxKAxebXWe21NIhAZmgsYeum3LaGHn9gV31klBlZOeT25Rxm5N+DReu81iiqoGJMi82TioKnqdCr4EotDftKYYcgik9MOR+mkodKeA7Hq0BV7T0fU8NII+dpnTrTlWiQO8325XgEfvK6CIgNUzxcWi/lnXPaabJCtuKasA9zRHb2WgoStJqvlyzqy6gLhXonEV1hogd9yUffnb+xTY7twBkBmeD4MkiwwmKupnFpc9EXzvKoThFgf8rh2X2XzCLiBDFjFRH6ODs+wqszQFDn5XZ+yo5ocTaHgU8zW+mXtgBE="
+    skip_cleanup: true
+    on:
+      tags: true
+      repo: fidesmo/fdsm
+cache:
+  directories:
+  - $HOME/.m2
