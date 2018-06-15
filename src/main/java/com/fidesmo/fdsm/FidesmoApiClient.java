@@ -14,7 +14,10 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -62,7 +65,7 @@ public class FidesmoApiClient {
     }
 
     public FidesmoApiClient(String appId, String appKey) {
-        this.http = HttpClientBuilder.create().useSystemProperties().setUserAgent("fdsm/18.06.15").build();
+        this.http = HttpClientBuilder.create().useSystemProperties().setUserAgent("fdsm/" + getVersion()).build();
         this.appId = appId;
         this.appKey = appKey;
     }
@@ -128,5 +131,19 @@ public class FidesmoApiClient {
 
     public void setTrace(boolean b) {
         restdebug = b;
+    }
+
+    public static String getVersion() {
+        try (InputStream versionfile = FidesmoApiClient.class.getResourceAsStream("version.txt")) {
+            String version = "unknown-development";
+            if (versionfile != null) {
+                try (BufferedReader vinfo = new BufferedReader(new InputStreamReader(versionfile, StandardCharsets.US_ASCII))) {
+                    version = vinfo.readLine();
+                }
+            }
+            return version;
+        } catch (IOException e) {
+            return "unknown-error";
+        }
     }
 }
