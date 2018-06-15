@@ -6,7 +6,7 @@ pipeline {
   stages {
     stage('Build fdsm.jar') {
       steps {
-        sh 'mvn package'
+        sh 'mvn clean package -U'
         archiveArtifacts artifacts: 'target/fdsm.jar', fingerprint: true
       }
     }
