@@ -20,7 +20,6 @@ abstract class CommandLineInterface {
     final static String OPT_LIST_RECIPES = "list-recipes";
     final static String OPT_CLEANUP = "cleanup";
     final static String OPT_INSTALL = "install";
-    final static String OPT_EXISTING = "existing";
     final static String OPT_PARAMS = "params";
     final static String OPT_CREATE = "create";
     final static String OPT_UNINSTALL = "uninstall";
@@ -81,13 +80,12 @@ abstract class CommandLineInterface {
         parser.accepts(OPT_STORE_DATA, "STORE DATA to applet").withRequiredArg().describedAs("HEX");
         parser.accepts(OPT_APPLET, "Specify applet").requiredIf(OPT_STORE_DATA).withRequiredArg().describedAs("AID");
         parser.accepts(OPT_DELIVER, "Deliver service").withRequiredArg();
-        parser.accepts(OPT_UPLOAD, "Upload CAP to Fidesmo").withRequiredArg().ofType(File.class).describedAs("CAP file");
+        parser.accepts(OPT_UPLOAD, "Upload CAP to Fidesmo").withOptionalArg().ofType(File.class).describedAs("CAP file");
         parser.accepts(OPT_LIST_APPLETS, "List applets at Fidesmo");
         parser.accepts(OPT_FLUSH_APPLETS, "Flush all applets from Fidesmo");
         parser.accepts(OPT_LIST_RECIPES, "List recipes at Fidesmo");
         parser.accepts(OPT_CLEANUP, "Clean up stale recipes");
-        parser.accepts(OPT_EXISTING, "Do not upload CAP with --install");
-        parser.accepts(OPT_INSTALL, "Install CAP to card").requiredIf(OPT_EXISTING).withRequiredArg().ofType(File.class).describedAs("CAP file");
+        parser.accepts(OPT_INSTALL, "Install CAP to card").withRequiredArg().ofType(File.class).describedAs("CAP file");
         parser.accepts(OPT_PARAMS, "Installation paremeters").withRequiredArg().describedAs("HEX");
         parser.accepts(OPT_CREATE, "Applet instance AID").withRequiredArg().describedAs("AID");
         parser.accepts(OPT_UNINSTALL, "Uninstall CAP from card").withRequiredArg().ofType(File.class).describedAs("CAP file");
@@ -110,6 +108,7 @@ abstract class CommandLineInterface {
         }
 
         if (args.has("help") || args.specs().size() == 0) {
+            System.out.println("# fdsm v" + FidesmoApiClient.getVersion());
             parser.printHelpOn(System.out);
             System.exit(0);
         }

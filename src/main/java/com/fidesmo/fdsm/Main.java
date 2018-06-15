@@ -95,7 +95,7 @@ public class Main extends CommandLineInterface {
                 }
             }
 
-            if (args.has(OPT_UPLOAD)) {
+            if (args.has(OPT_UPLOAD) && args.valueOf(OPT_UPLOAD) != null) {
                 getAuthenticatedClient().upload((File) args.valueOf(OPT_UPLOAD), true);
             } else if (args.has(OPT_FLUSH_APPLETS)) {
                 AuthenticatedFidesmoApiClient client = getAuthenticatedClient();
@@ -162,7 +162,7 @@ public class Main extends CommandLineInterface {
                             }
                         }
                         String recipe = RecipeGenerator.makeInstallRecipe(cap.getPackageAID(), applet, instance, params);
-                        if (!args.has(OPT_EXISTING))
+                        if (args.has(OPT_UPLOAD))
                             client.upload((File) args.valueOf(OPT_INSTALL), true);
                         fidesmoCard.deliverRecipe(client, recipe);
                     } else if (args.has(OPT_UNINSTALL)) {
