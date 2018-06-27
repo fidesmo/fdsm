@@ -24,7 +24,7 @@ abstract class CommandLineInterface {
     final static String OPT_CREATE = "create";
     final static String OPT_UNINSTALL = "uninstall";
     final static String OPT_STORE_DATA = "store-data";
-    final static String OPT_TRACE_RPC = "trace-rpc";
+    final static String OPT_TRACE_API = "trace-api";
     final static String OPT_TRACE_APDU = "trace-apdu";
 
     protected static String appId = null;
@@ -64,7 +64,7 @@ abstract class CommandLineInterface {
             fail("Invalid value: " + e.getMessage());
         }
 
-        if (args.has(OPT_TRACE_RPC))
+        if (args.has(OPT_TRACE_API))
             rpcTrace = true;
         if (args.has(OPT_TRACE_APDU))
             apduTrace = true;
@@ -79,18 +79,19 @@ abstract class CommandLineInterface {
         parser.accepts(OPT_APP_KEY, "Specify application key").withRequiredArg().describedAs("HEX");
         parser.accepts(OPT_STORE_DATA, "STORE DATA to applet").withRequiredArg().describedAs("HEX");
         parser.accepts(OPT_APPLET, "Specify applet").requiredIf(OPT_STORE_DATA).withRequiredArg().describedAs("AID");
-        parser.accepts(OPT_DELIVER, "Deliver service").withRequiredArg();
+        parser.accepts(OPT_DELIVER, "Deliver service").withRequiredArg().describedAs("serviceId");
         parser.accepts(OPT_UPLOAD, "Upload CAP to Fidesmo").withOptionalArg().ofType(File.class).describedAs("CAP file");
         parser.accepts(OPT_LIST_APPLETS, "List applets at Fidesmo");
         parser.accepts(OPT_FLUSH_APPLETS, "Flush all applets from Fidesmo");
         parser.accepts(OPT_LIST_RECIPES, "List recipes at Fidesmo");
         parser.accepts(OPT_CLEANUP, "Clean up stale recipes");
         parser.accepts(OPT_INSTALL, "Install CAP to card").withRequiredArg().ofType(File.class).describedAs("CAP file");
+
         parser.accepts(OPT_PARAMS, "Installation paremeters").withRequiredArg().describedAs("HEX");
         parser.accepts(OPT_CREATE, "Applet instance AID").withRequiredArg().describedAs("AID");
         parser.accepts(OPT_UNINSTALL, "Uninstall CAP from card").withRequiredArg().ofType(File.class).describedAs("CAP file");
 
-        parser.accepts(OPT_TRACE_RPC, "Trace Fidesmo API");
+        parser.accepts(OPT_TRACE_API, "Trace Fidesmo API");
         parser.accepts(OPT_TRACE_APDU, "Trace APDU-s");
 
         // Parse arguments

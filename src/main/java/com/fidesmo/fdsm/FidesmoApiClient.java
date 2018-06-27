@@ -1,5 +1,6 @@
 package com.fidesmo.fdsm;
 
+import apdu4j.HexUtils;
 import com.fasterxml.jackson.core.util.DefaultIndenter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -23,22 +24,23 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 
 public class FidesmoApiClient {
-    public static final String SERVICE_URL = "https://api.fidesmo.com/v2/apps/%s/services/%s";
-    public static final String SERVICE_RECIPE_URL = "https://api.fidesmo.com/v2/apps/%s/services/%s/recipe";
-    public static final String RECIPE_SERVICES_URL = "https://api.fidesmo.com/v2/apps/%s/recipe-services";
+    public static final String APIv2 = "https://api.fidesmo.com/v2/";
+    public static final String SERVICE_URL = "apps/%s/services/%s";
+    public static final String SERVICE_RECIPE_URL = "apps/%s/services/%s/recipe";
+    public static final String RECIPE_SERVICES_URL = "apps/%s/recipe-services";
 
-    public static final String ELF_URL = "https://api.fidesmo.com/v2/executableLoadFiles";
-    public static final String ELF_ID_URL = "https://api.fidesmo.com/v2/executableLoadFiles/%s";
+    public static final String ELF_URL = "executableLoadFiles";
+    public static final String ELF_ID_URL = "executableLoadFiles/%s";
 
-    public static final String SERVICE_DELIVER_URL = "https://api.fidesmo.com/v2/service/deliver";
-    public static final String SERVICE_FETCH_URL = "https://api.fidesmo.com/v2/service/fetch";
-    public static final String CONNECTOR_URL = "https://api.fidesmo.com/v2/connector/json";
-
+    public static final String SERVICE_DELIVER_URL = "service/deliver";
+    public static final String SERVICE_FETCH_URL = "service/fetch";
+    public static final String CONNECTOR_URL = "connector/json";
 
     private boolean restdebug = false; // RPC debug
     private final CloseableHttpClient http;
     protected final String appId;
     protected final String appKey;
+    private final String apiurl;
 
     static DefaultPrettyPrinter printer = new DefaultPrettyPrinter();
     static ObjectMapper mapper = new ObjectMapper();
@@ -49,7 +51,7 @@ public class FidesmoApiClient {
         printer.indentObjectsWith(indenter);
         printer.indentArraysWith(indenter);
 
-        if (false) {
+        if (System.getenv().getOrDefault("FDSM_DEBUG_HTTP", "false").equalsIgnoreCase("true")) {
             System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.SimpleLog");
             System.setProperty("org.apache.commons.logging.simplelog.showdatetime", "true");
             System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.wire", "DEBUG");
@@ -65,6 +67,13 @@ public class FidesmoApiClient {
     }
 
     public FidesmoApiClient(String appId, String appKey) {
+        if (appId != null && appKey != null) {
+            if (HexUtils.hex2bin(appId).length != 4)
+                throw new IllegalArgumentException("appId must be 4 bytes long (8 hex characters)");
+            if (HexUtils.hex2bin(appKey).length != 16)
+                throw new IllegalArgumentException("appKey must be 16 bytes long (32 hex characters)");
+        }
+        this.apiurl = APIv2;
         this.http = HttpClientBuilder.create().useSystemProperties().setUserAgent("fdsm/" + getVersion()).build();
         this.appId = appId;
         this.appKey = appKey;
@@ -80,7 +89,8 @@ public class FidesmoApiClient {
         }
 
         CloseableHttpResponse response = http.execute(request);
-        if (response.getStatusLine().getStatusCode() != 200) {
+        int responsecode = response.getStatusLine().getStatusCode();
+        if (responsecode < 200 || responsecode > 299) {
             throw new IOException(response.getStatusLine() + ": \n" + IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8));
         }
         return response;
@@ -123,7 +133,7 @@ public class FidesmoApiClient {
 
     public URI getURI(String template, String... args) {
         try {
-            return new URI(String.format(template, args));
+            return new URI(String.format(apiurl + template, args));
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException("Invalid stuff: " + e.getMessage(), e);
         }

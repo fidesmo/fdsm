@@ -15,7 +15,6 @@ import java.net.URI;
 
 public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
     private AuthenticatedFidesmoApiClient(String appId, String appKey) {
-        // TODO: Verify
         super(appId, appKey);
     }
 

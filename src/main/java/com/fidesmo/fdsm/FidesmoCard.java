@@ -1,5 +1,7 @@
 package com.fidesmo.fdsm;
 
+import pro.javacard.AID;
+
 import javax.smartcardio.CardChannel;
 import javax.smartcardio.CardException;
 import javax.smartcardio.CommandAPDU;
@@ -10,7 +12,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
+// Represents a live, personalized Fidesmo card
 public class FidesmoCard {
+    public final AID FIDESMO_APP_AID = AID.fromString("A000000617020002000001");
     private final CardChannel channel;
     private byte[] iin = null;
     private byte[] cin = null;
@@ -62,11 +66,11 @@ public class FidesmoCard {
     }
 
     public byte[] getIIN() {
-        return iin;
+        return iin.clone();
     }
 
     public byte[] getCIN() {
-        return cin;
+        return cin.clone();
     }
 
     public boolean detect() throws CardException {

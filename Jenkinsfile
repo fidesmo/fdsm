@@ -10,5 +10,11 @@ pipeline {
         archiveArtifacts artifacts: 'target/fdsm.jar', fingerprint: true
       }
     }
+    stage('Release fdsm.exe') {
+      when { tag "*" }
+      steps {
+        sh 'mvn -P release clean package'
+      }
+    }
   }
 }

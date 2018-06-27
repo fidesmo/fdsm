@@ -4,10 +4,9 @@ import apdu4j.HexUtils;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import pro.javacard.gp.AID;
+import pro.javacard.AID;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 
 public class RecipeGenerator {
@@ -65,11 +64,5 @@ public class RecipeGenerator {
             actions.add(action);
         }
         return r.toString();
-    }
-
-    public static void main(String[] argv) throws Exception {
-        System.out.println(makeInstallRecipe(AID.fromString("a00000061700d7d13e65"), AID.fromString("a00000061700d7d13e6501"), AID.fromString("A0000007810101002411111111111111"), HexUtils.hex2bin("0102030405")));
-        System.out.println(makeDeleteRecipe(AID.fromString("a00000061700d7d13e65")));
-        System.out.println(makeStoreDataRecipe(AID.fromString("a00000061700d7d13e65"), Arrays.asList(new byte[][]{HexUtils.hex2bin("0102030405")})));
     }
 }

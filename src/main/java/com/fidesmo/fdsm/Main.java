@@ -5,8 +5,8 @@ import apdu4j.LoggingCardTerminal;
 import apdu4j.TerminalManager;
 import com.fasterxml.jackson.databind.JsonNode;
 import joptsimple.OptionSet;
-import pro.javacard.gp.AID;
-import pro.javacard.gp.CAPFile;
+import pro.javacard.AID;
+import pro.javacard.CAPFile;
 
 import javax.smartcardio.Card;
 import javax.smartcardio.CardException;
@@ -138,7 +138,7 @@ public class Main extends CommandLineInterface {
                     AuthenticatedFidesmoApiClient client = getAuthenticatedClient();
 
                     if (args.has(OPT_INSTALL)) {
-                        CAPFile cap = new CAPFile(new FileInputStream((File) args.valueOf(OPT_INSTALL)));
+                        CAPFile cap = CAPFile.fromStream(new FileInputStream((File) args.valueOf(OPT_INSTALL)));
                         // Which applet
                         final AID applet;
                         if (cap.getAppletAIDs().size() > 1) {
@@ -157,7 +157,7 @@ public class Main extends CommandLineInterface {
                         if (args.has(OPT_PARAMS)) {
                             params = HexUtils.stringToBin(args.valueOf(OPT_PARAMS).toString());
                             // Restriction
-                            if (params.length > 0 && params[0] == 0xC9) {
+                            if (params.length > 0 && params[0] == (byte) 0xC9) {
                                 fail("Installation parameters must be without C9 tag");
                             }
                         }
@@ -166,7 +166,7 @@ public class Main extends CommandLineInterface {
                             client.upload((File) args.valueOf(OPT_INSTALL), true);
                         fidesmoCard.deliverRecipe(client, recipe);
                     } else if (args.has(OPT_UNINSTALL)) {
-                        CAPFile cap = new CAPFile(new FileInputStream((File) args.valueOf(OPT_UNINSTALL)));
+                        CAPFile cap = CAPFile.fromStream(new FileInputStream((File) args.valueOf(OPT_UNINSTALL)));
                         String recipe = RecipeGenerator.makeDeleteRecipe(cap.getPackageAID());
                         fidesmoCard.deliverRecipe(client, recipe);
                     }
@@ -188,6 +188,8 @@ public class Main extends CommandLineInterface {
             fail("Card communication error: " + e.getMessage());
         } catch (GeneralSecurityException e) {
             fail("No smart card readers?" + e.getMessage());
+        } catch (Exception e) {
+            fail("Unknown error: " + e.getMessage());
         }
     }
 

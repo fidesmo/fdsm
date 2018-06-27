@@ -6,7 +6,7 @@
 
     <groupId>com.fidesmo</groupId>
     <artifactId>fdsm</artifactId>
-    <version>18.06.15</version>
+    <version>18.06.27</version>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
@@ -18,11 +18,17 @@
             <artifactId>jopt-simple</artifactId>
             <version>5.0.4</version>
         </dependency>
-        <!-- CAP parsing, brings in apdu4j -->
+        <!-- CAP parsing -->
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
-            <artifactId>globalplatformpro</artifactId>
-            <version>0.3.10-rc12</version>
+            <artifactId>capfile</artifactId>
+            <version>18.06.27</version>
+        </dependency>
+        <!-- Card reader access -->
+        <dependency>
+            <groupId>com.github.martinpaljak</groupId>
+            <artifactId>apdu4j</artifactId>
+            <version>18.06.25</version>
         </dependency>
         <!-- API access: HTTP -->
         <dependency>
@@ -42,6 +48,13 @@
             <artifactId>commons-io</artifactId>
             <version>2.6</version>
         </dependency>
+        <!-- Simple logging for the CLI -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>1.7.25</version>
+            <optional>true</optional>
+        </dependency>
         <!-- Tests -->
         <dependency>
             <groupId>junit</groupId>
@@ -50,6 +63,53 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.akathist.maven.plugins.launch4j</groupId>
+                        <artifactId>launch4j-maven-plugin</artifactId>
+                        <version>1.7.22</version>
+                        <executions>
+                            <execution>
+                                <id>fdsm-exe</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>launch4j</goal>
+                                </goals>
+                                <configuration>
+                                    <headerType>console</headerType>
+                                    <outfile>target/fdsm.exe</outfile>
+                                    <jar>target/fdsm.jar</jar>
+                                    <errTitle>fdsm</errTitle>
+                                    <classPath>
+                                        <mainClass>com.fidesmo.fdsm.Main</mainClass>
+                                    </classPath>
+                                    <jre>
+                                        <minVersion>1.8.0</minVersion>
+                                    </jre>
+                                    <versionInfo>
+                                        <fileVersion>${project.version}.0</fileVersion>
+                                        <txtFileVersion>${project.version}</txtFileVersion>
+                                        <fileDescription>Fidesmo utility</fileDescription>
+                                        <copyright>(C) 2018 Fidesmo AB</copyright>
+                                        <productVersion>${project.version}.0</productVersion>
+                                        <txtProductVersion>${project.version}</txtProductVersion>
+                                        <productName>fdsm</productName>
+                                        <internalName>fdsm</internalName>
+                                        <originalFilename>fdsm.exe</originalFilename>
+                                    </versionInfo>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
     <build>
         <resources>
             <resource>
@@ -118,6 +178,12 @@
                                     <mainClass>com.fidesmo.fdsm.Main</mainClass>
                                 </transformer>
                             </transformers>
+                            <artifactSet>
+                                <excludes>
+                                    <exclude>org.bouncycastle:*</exclude>
+                                    <exclude>com.googlecode.json-simple:*</exclude>
+                                </excludes>
+                            </artifactSet>
                             <filters>
                                 <filter>
                                     <artifact>*:*</artifact>
@@ -135,5 +201,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>
