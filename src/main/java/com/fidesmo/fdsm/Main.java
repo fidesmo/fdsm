@@ -5,6 +5,7 @@ import apdu4j.LoggingCardTerminal;
 import apdu4j.TerminalManager;
 import com.fasterxml.jackson.databind.JsonNode;
 import joptsimple.OptionSet;
+import org.apache.http.client.HttpResponseException;
 import pro.javacard.AID;
 import pro.javacard.CAPFile;
 
@@ -26,89 +27,105 @@ public class Main extends CommandLineInterface {
             // Inspect arguments and environment
             OptionSet args = parseArguments(argv);
 
-            // List applets
-            if (args.has(OPT_LIST_APPLETS)) {
+            if (args.has(OPT_UPLOAD) || args.has(OPT_DELETE_APPLET) || args.has(OPT_FLUSH_APPLETS) || args.has(OPT_CLEANUP) || args.has(OPT_LIST_APPLETS) || args.has(OPT_LIST_RECIPES)) {
                 AuthenticatedFidesmoApiClient client = getAuthenticatedClient();
 
-                JsonNode applets = client.rpc(client.getURI(FidesmoApiClient.ELF_URL));
-                if (applets.size() > 0) {
-                    Map<String, ArrayList<String>> r = new HashMap<>();
+                // Delete a specific applet
+                if (args.has(OPT_DELETE_APPLET)) {
+                    String id = args.valueOf(OPT_DELETE_APPLET).toString();
+                    try {
+                        UUID uuid = UUID.fromString(id);
+                        client.delete(client.getURI(FidesmoApiClient.ELF_ID_URL, uuid.toString()));
+                        System.out.println(id + " deleted.");
+                    } catch (IllegalArgumentException e) {
+                        // FIXME: hash as ID and 404 on invalid input
+                        fail("Not a valid UUID: " + id);
+                    } catch (HttpResponseException e) {
+                        if (e.getStatusCode() == 404) {
+                            fail("Not found: " + id);
+                        } else
+                            throw e;
+                    }
+                }
+
+                // List applets
+                if (args.has(OPT_LIST_APPLETS)) {
+                    JsonNode applets = client.rpc(client.getURI(FidesmoApiClient.ELF_URL));
+                    // Show applets, grouped by AID-s.
+                    if (applets.size() > 0) {
+                        Map<String, Map<String, String>> r = new HashMap<>();
+                        for (JsonNode e : applets) {
+                            String aid = e.get("elfAid").asText().toUpperCase();
+                            List<String> variant = new ArrayList<>();
+                            if (e.has("globalPlatformVersion")) {
+                                variant.add("GP/" + e.get("globalPlatformVersion").asText());
+                            }
+                            if (e.has("javaCardVersion")) {
+                                variant.add("JC/" + e.get("javaCardVersion").asText());
+                            }
+                            if (e.has("otvVersion")) {
+                                variant.add(e.get("otvVersion").asText());
+                            }
+                            Map<String, String> ids = r.getOrDefault(aid, new HashMap<>());
+                            ids.put(e.get("id").asText(), String.join(", ", variant));
+                            r.put(aid, ids);
+                        }
+                        for (Map.Entry<String, Map<String, String>> e : r.entrySet()) {
+                            System.out.println("AID: " + e.getKey());
+                            for (Map.Entry<String, String> id : e.getValue().entrySet()) {
+                                System.out.println("     " + id.getKey() + " " + id.getValue());
+                            }
+                        }
+                    } else {
+                        System.out.println("No applets");
+                    }
+                }
+
+                // List applets
+                if (args.has(OPT_LIST_RECIPES)) {
+                    JsonNode recipes = client.rpc(client.getURI(FidesmoApiClient.RECIPE_SERVICES_URL, appId));
+                    if (recipes.size() > 0) {
+                        System.out.println(FidesmoApiClient.mapper.writer(FidesmoApiClient.printer).writeValueAsString(recipes));
+                    } else {
+                        System.out.println("No recipes");
+                    }
+                }
+
+                // Cleanup recipes
+                if (args.has(OPT_CLEANUP)) {
+                    JsonNode recipes = client.rpc(client.getURI(FidesmoApiClient.RECIPE_SERVICES_URL, appId));
+                    int removed = 0;
+                    if (recipes.size() > 0) {
+                        for (JsonNode r : recipes) {
+                            try {
+                                UUID uuid = UUID.fromString(r.asText());
+                                URI recipe = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, appId, uuid.toString());
+                                client.delete(recipe);
+                                removed = removed + 1;
+                            } catch (IllegalArgumentException e) {
+                                // Ignore recipes not matching uuid
+                            }
+                        }
+                        System.out.println("Cleaned up " + removed + " recipes");
+                    } else {
+                        System.out.println("No recipes");
+                    }
+                }
+
+                if (args.has(OPT_UPLOAD) && args.valueOf(OPT_UPLOAD) != null) {
+                    client.upload((File) args.valueOf(OPT_UPLOAD), true);
+                } else if (args.has(OPT_FLUSH_APPLETS)) {
+                    JsonNode applets = client.rpc(client.getURI(FidesmoApiClient.ELF_URL));
                     for (JsonNode e : applets) {
-                        String aid = e.get("elfAid").asText().toUpperCase();
-                        List<String> variant = new ArrayList<>();
-                        if (e.has("globalPlatformVersion")) {
-                            variant.add("GP/" + e.get("globalPlatformVersion").asText());
-                        }
-                        if (e.has("javaCardVersion")) {
-                            variant.add("JC/" + e.get("javaCardVersion").asText());
-                        }
-                        if (e.has("otvVersion")) {
-                            variant.add(e.get("otvVersion").asText());
-                        }
-                        final ArrayList<String> l;
-                        if (!r.containsKey(aid)) {
-                            l = new ArrayList<>();
-                            r.put(aid, l);
-                        } else {
-                            l = r.get(aid);
-                        }
-                        l.add(String.join(", ", variant));
+                        client.delete(client.getURI(FidesmoApiClient.ELF_ID_URL, e.get("id").asText()));
                     }
-                    for (Map.Entry<String, ArrayList<String>> e : r.entrySet()) {
-                        System.out.println("AID: " + e.getKey() + " (" + String.join("; ", e.getValue()) + ")");
-                    }
-                } else {
-                    System.out.println("No applets");
                 }
             }
 
-            // List applets
-            if (args.has(OPT_LIST_RECIPES)) {
-                AuthenticatedFidesmoApiClient client = getAuthenticatedClient();
-                JsonNode recipes = client.rpc(client.getURI(FidesmoApiClient.RECIPE_SERVICES_URL, appId));
-                if (recipes.size() > 0) {
-                    System.out.println(FidesmoApiClient.mapper.writer(FidesmoApiClient.printer).writeValueAsString(recipes));
-                } else {
-                    System.out.println("No recipes");
-                }
-            }
-
-            // Cleanup recipes
-            if (args.has(OPT_CLEANUP)) {
-                AuthenticatedFidesmoApiClient client = getAuthenticatedClient();
-                JsonNode recipes = client.rpc(client.getURI(FidesmoApiClient.RECIPE_SERVICES_URL, appId));
-                int removed = 0;
-                if (recipes.size() > 0) {
-                    for (JsonNode r : recipes) {
-                        try {
-                            UUID uuid = UUID.fromString(r.asText());
-                            URI recipe = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, appId, uuid.toString());
-                            client.delete(recipe);
-                            removed = removed + 1;
-                        } catch (IllegalArgumentException e) {
-                            // Ignore recipes not matching uuid
-                        }
-                    }
-                    System.out.println("Cleaned up " + removed + " recipes");
-                } else {
-                    System.out.println("No recipes");
-                }
-            }
-
-            if (args.has(OPT_UPLOAD) && args.valueOf(OPT_UPLOAD) != null) {
-                getAuthenticatedClient().upload((File) args.valueOf(OPT_UPLOAD), true);
-            } else if (args.has(OPT_FLUSH_APPLETS)) {
-                AuthenticatedFidesmoApiClient client = getAuthenticatedClient();
-                JsonNode applets = client.rpc(client.getURI(FidesmoApiClient.ELF_URL));
-                for (JsonNode e : applets) {
-                    client.delete(client.getURI(FidesmoApiClient.ELF_ID_URL, e.get("id").asText()));
-                }
-            }
-
+            // Following requires card access
             if (args.has(OPT_INSTALL) || args.has(OPT_UNINSTALL) || args.has(OPT_STORE_DATA) || args.has(OPT_DELIVER)) {
-                // Following require card access
                 // Locate a Fidesmo card
-                CardTerminal terminal = TerminalManager.getByAID(Collections.singletonList(HexUtils.hex2bin("A000000617020002000001")));
+                CardTerminal terminal = TerminalManager.getByAID(Collections.singletonList(FidesmoCard.FIDESMO_APP_AID.getBytes()));
                 if (apduTrace) {
                     terminal = LoggingCardTerminal.getInstance(terminal);
                 }
@@ -122,7 +139,7 @@ public class Main extends CommandLineInterface {
                     String service = args.valueOf(OPT_DELIVER).toString();
                     if (service.contains("/")) {
                         String[] bits = service.split("/");
-                        if (bits.length == 2) {
+                        if (bits.length == 2 && bits[0].length() == 8) {
                             service = bits[1];
                             appId = bits[0];
                         } else {
@@ -182,12 +199,14 @@ public class Main extends CommandLineInterface {
                     }
                 }
             }
+        } catch (HttpResponseException e) {
+            fail("API error: " + e.getMessage());
         } catch (IOException e) {
             fail("I/O error: " + e.getMessage());
         } catch (CardException e) {
             fail("Card communication error: " + e.getMessage());
         } catch (GeneralSecurityException e) {
-            fail("No smart card readers?" + e.getMessage());
+            fail("No smart card readers: " + e.getMessage());
         } catch (Exception e) {
             fail("Unknown error: " + e.getMessage());
         }
@@ -198,7 +217,7 @@ public class Main extends CommandLineInterface {
             fail("Provide appId and appKey, either via --app-id and --app-key or $FIDESMO_APP_ID and $FIDESMO_APP_KEY");
         }
         AuthenticatedFidesmoApiClient client = AuthenticatedFidesmoApiClient.getInstance(appId, appKey);
-        if (rpcTrace) {
+        if (apiTrace) {
             client.setTrace(true);
         }
         return client;

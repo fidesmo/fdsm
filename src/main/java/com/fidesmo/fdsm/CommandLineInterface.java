@@ -16,6 +16,7 @@ abstract class CommandLineInterface {
     final static String OPT_DELIVER = "deliver";
     final static String OPT_UPLOAD = "upload";
     final static String OPT_LIST_APPLETS = "list-applets";
+    final static String OPT_DELETE_APPLET = "delete-applet";
     final static String OPT_FLUSH_APPLETS = "flush-applets";
     final static String OPT_LIST_RECIPES = "list-recipes";
     final static String OPT_CLEANUP = "cleanup";
@@ -30,15 +31,20 @@ abstract class CommandLineInterface {
     protected static String appId = null;
     protected static String appKey = null;
     protected static boolean apduTrace = false;
-    protected static boolean rpcTrace = false;
+    protected static boolean apiTrace = false;
 
 
     private static void inspectEnvironment(OptionSet args) {
         // Get the app ID from the environment, if present
         appId = System.getenv("FIDESMO_APP_ID");
+        if (appId != null && !args.has(OPT_APP_ID)) {
+            // Lower case for similarity to dev portal
+            System.out.println("Using $FIDESMO_APP_ID: " + appId.toLowerCase());
+        }
         if (args.has(OPT_APP_ID)) {
             appId = args.valueOf(OPT_APP_ID).toString();
         }
+
         // Get the app key from the environment, if present
         appKey = System.getenv("FIDESMO_APP_KEY");
         if (args.has(OPT_APP_KEY)) {
@@ -51,8 +57,6 @@ abstract class CommandLineInterface {
                 if (HexUtils.hex2bin(appId).length != 4) {
                     throw new IllegalArgumentException("appId hex must be 8 characters!");
                 }
-                // Lower case for similarity to dev portal
-                System.out.println("# Using appID " + appId.toLowerCase());
             }
 
             if (appKey != null) {
@@ -65,7 +69,7 @@ abstract class CommandLineInterface {
         }
 
         if (args.has(OPT_TRACE_API))
-            rpcTrace = true;
+            apiTrace = true;
         if (args.has(OPT_TRACE_APDU))
             apduTrace = true;
     }
@@ -82,12 +86,13 @@ abstract class CommandLineInterface {
         parser.accepts(OPT_DELIVER, "Deliver service").withRequiredArg().describedAs("serviceId");
         parser.accepts(OPT_UPLOAD, "Upload CAP to Fidesmo").withOptionalArg().ofType(File.class).describedAs("CAP file");
         parser.accepts(OPT_LIST_APPLETS, "List applets at Fidesmo");
+        parser.accepts(OPT_DELETE_APPLET, "Deletes applet from Fidesmo").withRequiredArg().describedAs("ID");
         parser.accepts(OPT_FLUSH_APPLETS, "Flush all applets from Fidesmo");
         parser.accepts(OPT_LIST_RECIPES, "List recipes at Fidesmo");
         parser.accepts(OPT_CLEANUP, "Clean up stale recipes");
         parser.accepts(OPT_INSTALL, "Install CAP to card").withRequiredArg().ofType(File.class).describedAs("CAP file");
 
-        parser.accepts(OPT_PARAMS, "Installation paremeters").withRequiredArg().describedAs("HEX");
+        parser.accepts(OPT_PARAMS, "Installation parameters").withRequiredArg().describedAs("HEX");
         parser.accepts(OPT_CREATE, "Applet instance AID").withRequiredArg().describedAs("AID");
         parser.accepts(OPT_UNINSTALL, "Uninstall CAP from card").withRequiredArg().ofType(File.class).describedAs("CAP file");
 
@@ -111,7 +116,7 @@ abstract class CommandLineInterface {
         if (args.has("help") || args.specs().size() == 0) {
             System.out.println("# fdsm v" + FidesmoApiClient.getVersion());
             parser.printHelpOn(System.out);
-            System.exit(0);
+            success("\nMore information at https://github.com/fidesmo/fdsm\n");
         }
 
         inspectEnvironment(args);
@@ -119,7 +124,12 @@ abstract class CommandLineInterface {
     }
 
     static void fail(String message) {
-        System.err.println("Failure: " + message);
+        System.err.println(message);
         System.exit(1);
+    }
+
+    static void success(String message) {
+        System.out.println(message);
+        System.exit(0);
     }
 }

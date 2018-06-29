@@ -14,7 +14,7 @@ import java.util.UUID;
 
 // Represents a live, personalized Fidesmo card
 public class FidesmoCard {
-    public final AID FIDESMO_APP_AID = AID.fromString("A000000617020002000001");
+    public static final AID FIDESMO_APP_AID = AID.fromString("A000000617020002000001");
     private final CardChannel channel;
     private byte[] iin = null;
     private byte[] cin = null;

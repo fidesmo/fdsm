@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.io.IOUtils;
+import org.apache.http.client.HttpResponseException;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -79,6 +80,14 @@ public class FidesmoApiClient {
         this.appKey = appKey;
     }
 
+    public static boolean checkAppId(String appId) {
+        try {
+            return HexUtils.hex2bin(appId).length == 4;
+        } catch (IllegalArgumentException e) {
+            // Pass through
+        }
+        return false;
+    }
     CloseableHttpResponse transmit(HttpRequestBase request) throws IOException {
         if (appId != null && appKey != null) {
             request.setHeader("app_id", appId);
@@ -91,7 +100,7 @@ public class FidesmoApiClient {
         CloseableHttpResponse response = http.execute(request);
         int responsecode = response.getStatusLine().getStatusCode();
         if (responsecode < 200 || responsecode > 299) {
-            throw new IOException(response.getStatusLine() + ": \n" + IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8));
+            throw new HttpResponseException(responsecode, response.getStatusLine() + "\n" + IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8));
         }
         return response;
     }
