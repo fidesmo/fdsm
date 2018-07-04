@@ -22,4 +22,13 @@ public class FidesmoCapFile extends CAPFile {
         }
         return false;
     }
+
+    public boolean isJCOP242R1() {
+        AID jcop = new AID(HexUtils.hex2bin("D276000085494A434F5058"));
+        for (CAPPackage p : getImports()) {
+            if (p.getAid().equals(jcop) && p.getVersionString().equals("7.0"))
+                return true;
+        }
+        return false;
+    }
 }

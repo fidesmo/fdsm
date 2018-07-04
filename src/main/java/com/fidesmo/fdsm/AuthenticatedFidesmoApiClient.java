@@ -59,11 +59,12 @@ public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
             }
             if (cap.isJCOP242R2()) {
                 post.setHeader("OS-Type-Version", "JCOP 2.4.2r2");
+            } else if (cap.isJCOP242R1()) {
+                post.setHeader("OS-Type-Version", "JCOP 2.4.2r1");
             }
             // CAP content
             post.setEntity(new InputStreamEntity(in));
             transmit(post);
         }
-
     }
 }
