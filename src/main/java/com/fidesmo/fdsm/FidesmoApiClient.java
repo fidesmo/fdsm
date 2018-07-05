@@ -20,8 +20,10 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 public class FidesmoApiClient {
@@ -74,7 +76,18 @@ public class FidesmoApiClient {
             if (HexUtils.hex2bin(appKey).length != 16)
                 throw new IllegalArgumentException("appKey must be 16 bytes long (32 hex characters)");
         }
-        this.apiurl = APIv2;
+        if (System.getenv().containsKey("FIDESMO_API_URL")) {
+            String check;
+            try {
+                check = new URL(System.getenv("FIDESMO_API_URL")).toString();
+            } catch (MalformedURLException e) {
+                // Silently ignore malformed URL-s
+                check = APIv2;
+            }
+            this.apiurl = check;
+        } else {
+            this.apiurl = APIv2;
+        }
         this.http = HttpClientBuilder.create().useSystemProperties().setUserAgent("fdsm/" + getVersion()).build();
         this.appId = appId;
         this.appKey = appKey;
