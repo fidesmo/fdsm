@@ -17,7 +17,9 @@ pipeline {
     stage('Release fdsm.exe') {
       when { tag "*" }
       steps {
-        sh 'mvn -P release clean package'
+        // Removed until libc6 i386 is available
+        // sh 'mvn -P release clean package'
+        sh 'true'
       }
     }
     stage('Deploy') {
