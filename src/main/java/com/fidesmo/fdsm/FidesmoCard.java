@@ -94,7 +94,7 @@ public class FidesmoCard {
         cin = response.getData();
         // Read batch data
         CommandAPDU selectFidesmo = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, FIDESMO_APP_AID.getBytes());
-        response = channel.transmit(selectISD);
+        response = channel.transmit(selectFidesmo);
         if (response.getSW() != 0x9000)
             return false;
         return true;
@@ -109,9 +109,11 @@ public class FidesmoCard {
         do {
             response = channel.transmit(select);
             if (response.getSW() == 0x9000) {
-                byte[] appID = Arrays.copyOfRange(extractAid(response.getData()), 6, 10);
-                if (appID == null)
+                byte[] aid = extractAid(response.getData());
+                if (aid == null)
                     throw new CardException("Invalid response from card: " + HexUtils.bin2hex(response.getData()));
+                byte[] appID = Arrays.copyOfRange(aid, 6, 10);
+
                 apps.add(appID);
                 select = new CommandAPDU(0x00, 0xA4, 0x04, 0x02, prefix);
             }
