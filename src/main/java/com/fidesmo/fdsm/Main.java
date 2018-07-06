@@ -4,7 +4,7 @@ import apdu4j.HexUtils;
 import apdu4j.LoggingCardTerminal;
 import apdu4j.TerminalManager;
 import com.fasterxml.jackson.databind.JsonNode;
-import joptsimple.OptionSet;
+import javafx.util.Pair;
 import org.apache.http.client.HttpResponseException;
 import pro.javacard.AID;
 import pro.javacard.CAPFile;
@@ -137,19 +137,27 @@ public class Main extends CommandLineInterface {
                     FidesmoApiClient client = getClient();
                     List<byte[]> apps = fidesmoCard.listApps();
                     if (apps.size() > 0) {
-                        System.out.println("#  appId - name and vendor");
+                        Map<byte[], Pair<String, List<String>>> content = new LinkedHashMap<>();
+                        // Construct list in one go
                         for (byte[] app : apps) {
                             JsonNode appdesc = client.rpc(client.getURI(FidesmoApiClient.APP_INFO_URL, HexUtils.bin2hex(app)));
                             String appName = appdesc.get("name").asText();
                             String appVendor = appdesc.get("organization").get("name").asText();
-                            System.out.println(HexUtils.bin2hex(app).toLowerCase() + " - " + appName + " (by " + appVendor + ")");
+                            List<String> srvs = new ArrayList<>();
                             // Fetch services
                             JsonNode services = client.rpc(client.getURI(FidesmoApiClient.APP_SERVICES_URL, HexUtils.bin2hex(app)));
                             if (services.size() > 0) {
-                                List<String> srvs = new ArrayList<>();
                                 for (JsonNode s : services)
                                     srvs.add(s.asText());
-                                System.out.println("           Services: " + String.join(", ", srvs));
+                            }
+                            content.put(app, new Pair<>(appName + " (by " + appVendor + ")", srvs));
+                        }
+                        // Display list in one go.
+                        System.out.println("#  appId - name and vendor");
+                        for (Map.Entry<byte[], Pair<String, List<String>>> e : content.entrySet()) {
+                            System.out.println(HexUtils.bin2hex(e.getKey()).toLowerCase() + " - " + e.getValue().getKey());
+                            if (e.getValue().getValue().size() > 0) {
+                                System.out.println("           Services: " + String.join(", ", e.getValue().getValue()));
                             }
                         }
                     } else {

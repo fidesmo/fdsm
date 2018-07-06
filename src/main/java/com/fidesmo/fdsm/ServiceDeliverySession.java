@@ -40,7 +40,7 @@ public class ServiceDeliverySession {
 
         cardId.put("iin", HexUtils.bin2hex(card.getIIN()));
         cardId.put("cin", HexUtils.bin2hex(card.getCIN()));
-        cardId.put("platformVersion", 1); // FIXME: what? why?
+        cardId.put("platformVersion", 1); // FIXME: what? why? Why backend can't figure it out?
 
         deliveryrequest.set("cardId", cardId);
 
@@ -83,6 +83,7 @@ public class ServiceDeliverySession {
                             // Indicate error to Fidesmo API
                             ObjectNode transmiterror = JsonNodeFactory.instance.objectNode();
                             transmiterror.set("uuid", fetch.get("operationId"));
+                            transmiterror.put("reason", e.getMessage());
                             client.rpc(client.getURI(FidesmoApiClient.CONNECTOR_ERROR_URL), transmiterror);
                             // And escalate the exception to caller as well.
                             throw e;
