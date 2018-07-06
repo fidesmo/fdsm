@@ -28,6 +28,10 @@ import java.nio.charset.StandardCharsets;
 
 public class FidesmoApiClient {
     public static final String APIv2 = "https://api.fidesmo.com/v2/";
+
+    public static final String APP_INFO_URL = "apps/%s";
+    public static final String APP_SERVICES_URL = "apps/%s/services";
+
     public static final String SERVICE_URL = "apps/%s/services/%s";
     public static final String SERVICE_RECIPE_URL = "apps/%s/services/%s/recipe";
     public static final String RECIPE_SERVICES_URL = "apps/%s/recipe-services";
@@ -37,7 +41,10 @@ public class FidesmoApiClient {
 
     public static final String SERVICE_DELIVER_URL = "service/deliver";
     public static final String SERVICE_FETCH_URL = "service/fetch";
+
     public static final String CONNECTOR_URL = "connector/json";
+    public static final String CONNECTOR_ERROR_URL = "connector/error";
+
 
     private boolean restdebug = false; // RPC debug
     private final CloseableHttpClient http;

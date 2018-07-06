@@ -17,6 +17,7 @@ abstract class CommandLineInterface {
     final static String OPT_UPLOAD = "upload";
     final static String OPT_LIST_APPLETS = "list-applets";
     final static String OPT_DELETE_APPLET = "delete-applet";
+    final static String OPT_CARD_APPS = "card-apps";
     final static String OPT_FLUSH_APPLETS = "flush-applets";
     final static String OPT_LIST_RECIPES = "list-recipes";
     final static String OPT_CLEANUP = "cleanup";
@@ -33,8 +34,9 @@ abstract class CommandLineInterface {
     protected static boolean apduTrace = false;
     protected static boolean apiTrace = false;
 
+    protected static OptionSet args = null;
 
-    private static void inspectEnvironment(OptionSet args) {
+    protected static void inspectEnvironment(OptionSet args) {
         // Get the app ID from the environment, if present
         appId = System.getenv("FIDESMO_APP_ID");
         if (appId != null && !args.has(OPT_APP_ID)) {
@@ -67,15 +69,9 @@ abstract class CommandLineInterface {
         } catch (IllegalArgumentException e) {
             fail("Invalid value: " + e.getMessage());
         }
-
-        if (args.has(OPT_TRACE_API))
-            apiTrace = true;
-        if (args.has(OPT_TRACE_APDU))
-            apduTrace = true;
     }
 
     protected static OptionSet parseArguments(String[] argv) throws IOException {
-        OptionSet args = null;
         OptionParser parser = new OptionParser();
 
         parser.acceptsAll(Arrays.asList("h", "?", "help"), "Shows this help").forHelp();
@@ -87,6 +83,8 @@ abstract class CommandLineInterface {
         parser.accepts(OPT_UPLOAD, "Upload CAP to Fidesmo").withOptionalArg().ofType(File.class).describedAs("CAP file");
         parser.accepts(OPT_LIST_APPLETS, "List applets at Fidesmo");
         parser.accepts(OPT_DELETE_APPLET, "Deletes applet from Fidesmo").withRequiredArg().describedAs("ID");
+        parser.accepts(OPT_CARD_APPS, "List apps on the card");
+
         parser.accepts(OPT_FLUSH_APPLETS, "Flush all applets from Fidesmo");
         parser.accepts(OPT_LIST_RECIPES, "List recipes at Fidesmo");
         parser.accepts(OPT_CLEANUP, "Clean up stale recipes");
@@ -119,7 +117,11 @@ abstract class CommandLineInterface {
             success("\nMore information at https://github.com/fidesmo/fdsm\n");
         }
 
-        inspectEnvironment(args);
+        // Set some variables
+        if (args.has(OPT_TRACE_API))
+            apiTrace = true;
+        if (args.has(OPT_TRACE_APDU))
+            apduTrace = true;
         return args;
     }
 

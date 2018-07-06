@@ -67,7 +67,7 @@ public class ServiceDeliverySession {
             if (!fetch.get("completed").asBoolean() && fetch.get("operationType").asText().equals("transceive")) {
                 ObjectNode transmitrequest = JsonNodeFactory.instance.objectNode();
                 transmitrequest.set("uuid", fetch.get("operationId"));
-                transmitrequest.put("open", true);
+                transmitrequest.put("open", true); // FIXME: document
                 transmitrequest.putArray("responses"); // Empty, to signal "start sending"
                 while (true) {
                     JsonNode transmit = client.rpc(client.getURI(FidesmoApiClient.CONNECTOR_URL), transmitrequest);
@@ -75,8 +75,17 @@ public class ServiceDeliverySession {
                     // Check if there are commands
                     if (commands.size() > 0) {
                         ArrayList<String> responses = new ArrayList<>();
-                        for (JsonNode cmd : commands) {
-                            responses.add(HexUtils.bin2hex(card.transmit(HexUtils.hex2bin(cmd.asText()))));
+                        try {
+                            for (JsonNode cmd : commands) {
+                                responses.add(HexUtils.bin2hex(card.transmit(HexUtils.hex2bin(cmd.asText()))));
+                            }
+                        } catch (CardException e) {
+                            // Indicate error to Fidesmo API
+                            ObjectNode transmiterror = JsonNodeFactory.instance.objectNode();
+                            transmiterror.set("uuid", fetch.get("operationId"));
+                            client.rpc(client.getURI(FidesmoApiClient.CONNECTOR_ERROR_URL), transmiterror);
+                            // And escalate the exception to caller as well.
+                            throw e;
                         }
                         transmitrequest.set("responses", mapper.valueToTree(responses));
                     } else {

@@ -1,5 +1,10 @@
 package com.fidesmo.fdsm;
 
+import apdu4j.HexUtils;
+import com.payneteasy.tlv.BerTag;
+import com.payneteasy.tlv.BerTlv;
+import com.payneteasy.tlv.BerTlvParser;
+import com.payneteasy.tlv.BerTlvs;
 import pro.javacard.AID;
 
 import javax.smartcardio.CardChannel;
@@ -8,9 +13,7 @@ import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
 import java.io.IOException;
 import java.net.URI;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 // Represents a live, personalized Fidesmo card
 public class FidesmoCard {
@@ -89,6 +92,43 @@ public class FidesmoCard {
         if (response.getSW() != 0x9000)
             return false;
         cin = response.getData();
+        // Read batch data
+        CommandAPDU selectFidesmo = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, FIDESMO_APP_AID.getBytes());
+        response = channel.transmit(selectISD);
+        if (response.getSW() != 0x9000)
+            return false;
         return true;
+    }
+
+    public List<byte[]> listApps() throws CardException {
+        // Fidesmo apps prefix
+        final byte[] prefix = HexUtils.hex2bin("A00000061701");
+        List<byte[]> apps = new LinkedList<>();
+        CommandAPDU select = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, prefix);
+        ResponseAPDU response;
+        do {
+            response = channel.transmit(select);
+            if (response.getSW() == 0x9000) {
+                byte[] appID = Arrays.copyOfRange(extractAid(response.getData()), 6, 10);
+                if (appID == null)
+                    throw new CardException("Invalid response from card: " + HexUtils.bin2hex(response.getData()));
+                apps.add(appID);
+                select = new CommandAPDU(0x00, 0xA4, 0x04, 0x02, prefix);
+            }
+        } while (response.getSW() == 0x9000);
+        return apps;
+    }
+
+    private static byte[] extractAid(byte[] selectResponse) {
+        BerTlvParser parser = new BerTlvParser();
+        BerTlvs tlvs = parser.parse(selectResponse);
+        BerTlv fci = tlvs.find(new BerTag(0x6F));
+        if (fci != null) {
+            BerTlv aid = fci.find(new BerTag(0x84));
+            if (aid != null) {
+                return aid.getBytesValue();
+            }
+        }
+        return null;
     }
 }

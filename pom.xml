@@ -56,6 +56,13 @@
             <version>1.7.25</version>
             <optional>true</optional>
         </dependency>
+        <!-- Parsing GlobalPlatform response TLV -->
+        <dependency>
+            <groupId>com.payneteasy</groupId>
+            <artifactId>ber-tlv</artifactId>
+            <version>1.0-8</version>
+            <optional>true</optional>
+        </dependency>
         <!-- Tests -->
         <dependency>
             <groupId>junit</groupId>

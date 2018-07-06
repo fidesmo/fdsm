@@ -24,8 +24,8 @@ public class Main extends CommandLineInterface {
 
     public static void main(String[] argv) {
         try {
-            // Inspect arguments and environment
-            OptionSet args = parseArguments(argv);
+            // Inspect arguments
+            parseArguments(argv);
 
             if (args.has(OPT_UPLOAD) || args.has(OPT_DELETE_APPLET) || args.has(OPT_FLUSH_APPLETS) || args.has(OPT_CLEANUP) || args.has(OPT_LIST_APPLETS) || args.has(OPT_LIST_RECIPES)) {
                 AuthenticatedFidesmoApiClient client = getAuthenticatedClient();
@@ -123,7 +123,7 @@ public class Main extends CommandLineInterface {
             }
 
             // Following requires card access
-            if (args.has(OPT_INSTALL) || args.has(OPT_UNINSTALL) || args.has(OPT_STORE_DATA) || args.has(OPT_DELIVER)) {
+            if (args.has(OPT_INSTALL) || args.has(OPT_UNINSTALL) || args.has(OPT_STORE_DATA) || args.has(OPT_DELIVER) || args.has(OPT_CARD_APPS)) {
                 // Locate a Fidesmo card
                 CardTerminal terminal = TerminalManager.getByAID(Collections.singletonList(FidesmoCard.FIDESMO_APP_AID.getBytes()));
                 if (apduTrace) {
@@ -133,8 +133,30 @@ public class Main extends CommandLineInterface {
                 fidesmoCard = FidesmoCard.getInstance(card.getBasicChannel());
                 System.out.println("Using card in " + terminal.getName());
 
-                if (args.has(OPT_DELIVER)) {
-                    FidesmoApiClient client = new FidesmoApiClient();
+                if (args.has(OPT_CARD_APPS)) {
+                    FidesmoApiClient client = getClient();
+                    List<byte[]> apps = fidesmoCard.listApps();
+                    if (apps.size() > 0) {
+                        System.out.println("#  appId - name and vendor");
+                        for (byte[] app : apps) {
+                            JsonNode appdesc = client.rpc(client.getURI(FidesmoApiClient.APP_INFO_URL, HexUtils.bin2hex(app)));
+                            String appName = appdesc.get("name").asText();
+                            String appVendor = appdesc.get("organization").get("name").asText();
+                            System.out.println(HexUtils.bin2hex(app).toLowerCase() + " - " + appName + " (by " + appVendor + ")");
+                            // Fetch services
+                            JsonNode services = client.rpc(client.getURI(FidesmoApiClient.APP_SERVICES_URL, HexUtils.bin2hex(app)));
+                            if (services.size() > 0) {
+                                List<String> srvs = new ArrayList<>();
+                                for (JsonNode s : services)
+                                    srvs.add(s.asText());
+                                System.out.println("           Services: " + String.join(", ", srvs));
+                            }
+                        }
+                    } else {
+                        System.out.println("No applications");
+                    }
+                } else if (args.has(OPT_DELIVER)) {
+                    FidesmoApiClient client = getClient();
 
                     String service = args.valueOf(OPT_DELIVER).toString();
                     if (service.contains("/")) {
@@ -212,7 +234,17 @@ public class Main extends CommandLineInterface {
         }
     }
 
+    private static FidesmoApiClient getClient() {
+        FidesmoApiClient client = new FidesmoApiClient();
+        if (apiTrace) {
+            client.setTrace(true);
+        }
+        return client;
+    }
+
     private static AuthenticatedFidesmoApiClient getAuthenticatedClient() {
+        // Check environment
+        inspectEnvironment(args);
         if (appId == null || appKey == null) {
             fail("Provide appId and appKey, either via --app-id and --app-key or $FIDESMO_APP_ID and $FIDESMO_APP_KEY");
         }
