@@ -18,6 +18,7 @@ abstract class CommandLineInterface {
     final static String OPT_LIST_APPLETS = "list-applets";
     final static String OPT_DELETE_APPLET = "delete-applet";
     final static String OPT_CARD_APPS = "card-apps";
+    final static String OPT_STORE_APPS = "store-apps";
     final static String OPT_FLUSH_APPLETS = "flush-applets";
     final static String OPT_LIST_RECIPES = "list-recipes";
     final static String OPT_CLEANUP = "cleanup";
@@ -28,6 +29,7 @@ abstract class CommandLineInterface {
     final static String OPT_STORE_DATA = "store-data";
     final static String OPT_TRACE_API = "trace-api";
     final static String OPT_TRACE_APDU = "trace-apdu";
+    final static String OPT_VERBOSE = "verbose";
 
     protected static String appId = null;
     protected static String appKey = null;
@@ -35,6 +37,7 @@ abstract class CommandLineInterface {
     protected static boolean apiTrace = false;
 
     protected static OptionSet args = null;
+    protected static boolean verbose = false;
 
     protected static void inspectEnvironment(OptionSet args) {
         // Get the app ID from the environment, if present
@@ -84,7 +87,7 @@ abstract class CommandLineInterface {
         parser.accepts(OPT_LIST_APPLETS, "List applets at Fidesmo");
         parser.accepts(OPT_DELETE_APPLET, "Deletes applet from Fidesmo").withRequiredArg().describedAs("ID");
         parser.accepts(OPT_CARD_APPS, "List apps on the card");
-
+        parser.accepts(OPT_STORE_APPS, "List apps in the store");
         parser.accepts(OPT_FLUSH_APPLETS, "Flush all applets from Fidesmo");
         parser.accepts(OPT_LIST_RECIPES, "List recipes at Fidesmo");
         parser.accepts(OPT_CLEANUP, "Clean up stale recipes");
@@ -96,6 +99,8 @@ abstract class CommandLineInterface {
 
         parser.accepts(OPT_TRACE_API, "Trace Fidesmo API");
         parser.accepts(OPT_TRACE_APDU, "Trace APDU-s");
+        parser.accepts(OPT_VERBOSE, "Be verbose");
+
 
         // Parse arguments
         try {
@@ -122,6 +127,8 @@ abstract class CommandLineInterface {
             apiTrace = true;
         if (args.has(OPT_TRACE_APDU))
             apduTrace = true;
+        if (args.has(OPT_VERBOSE))
+            verbose = true;
         return args;
     }
 

@@ -4,7 +4,6 @@ import apdu4j.HexUtils;
 import apdu4j.LoggingCardTerminal;
 import apdu4j.TerminalManager;
 import com.fasterxml.jackson.databind.JsonNode;
-import javafx.util.Pair;
 import org.apache.http.client.HttpResponseException;
 import pro.javacard.AID;
 import pro.javacard.CAPFile;
@@ -15,9 +14,11 @@ import javax.smartcardio.CardTerminal;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.URI;
 import java.security.GeneralSecurityException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class Main extends CommandLineInterface {
     private static FidesmoCard fidesmoCard;
@@ -26,6 +27,21 @@ public class Main extends CommandLineInterface {
         try {
             // Inspect arguments
             parseArguments(argv);
+
+            if (args.has(OPT_STORE_APPS)) {
+                FidesmoApiClient client = getClient();
+
+                JsonNode apps = client.rpc(client.getURI(FidesmoApiClient.APPS_URL));
+                if (apps.size() > 0) {
+                    List<byte[]> appids = new LinkedList<>();
+                    for (JsonNode appid : apps) {
+                        appids.add(HexUtils.hex2bin(appid.asText()));
+                    }
+                    printApps(queryApps(client, appids, verbose), System.out, verbose);
+                } else {
+                    System.out.println("No apps in the appstore!");
+                }
+            }
 
             if (args.has(OPT_UPLOAD) || args.has(OPT_DELETE_APPLET) || args.has(OPT_FLUSH_APPLETS) || args.has(OPT_CLEANUP) || args.has(OPT_LIST_APPLETS) || args.has(OPT_LIST_RECIPES)) {
                 AuthenticatedFidesmoApiClient client = getAuthenticatedClient();
@@ -137,29 +153,7 @@ public class Main extends CommandLineInterface {
                     FidesmoApiClient client = getClient();
                     List<byte[]> apps = fidesmoCard.listApps();
                     if (apps.size() > 0) {
-                        Map<byte[], Pair<String, List<String>>> content = new LinkedHashMap<>();
-                        // Construct list in one go
-                        for (byte[] app : apps) {
-                            JsonNode appdesc = client.rpc(client.getURI(FidesmoApiClient.APP_INFO_URL, HexUtils.bin2hex(app)));
-                            String appName = appdesc.get("name").asText();
-                            String appVendor = appdesc.get("organization").get("name").asText();
-                            List<String> srvs = new ArrayList<>();
-                            // Fetch services
-                            JsonNode services = client.rpc(client.getURI(FidesmoApiClient.APP_SERVICES_URL, HexUtils.bin2hex(app)));
-                            if (services.size() > 0) {
-                                for (JsonNode s : services)
-                                    srvs.add(s.asText());
-                            }
-                            content.put(app, new Pair<>(appName + " (by " + appVendor + ")", srvs));
-                        }
-                        // Display list in one go.
-                        System.out.println("#  appId - name and vendor");
-                        for (Map.Entry<byte[], Pair<String, List<String>>> e : content.entrySet()) {
-                            System.out.println(HexUtils.bin2hex(e.getKey()).toLowerCase() + " - " + e.getValue().getKey());
-                            if (e.getValue().getValue().size() > 0) {
-                                System.out.println("           Services: " + String.join(", ", e.getValue().getValue()));
-                            }
-                        }
+                        printApps(queryApps(client, apps, verbose), System.out, verbose);
                     } else {
                         System.out.println("No applications");
                     }
@@ -238,7 +232,54 @@ public class Main extends CommandLineInterface {
         } catch (GeneralSecurityException e) {
             fail("No smart card readers: " + e.getMessage());
         } catch (Exception e) {
+            e.printStackTrace();
             fail("Unknown error: " + e.getMessage());
+        }
+    }
+
+    private static List<FidesmoApp> queryApps(FidesmoApiClient client, List<byte[]> apps, boolean verbose) throws IOException {
+        List<FidesmoApp> result = new ArrayList<>();
+        // Construct list in one go
+        for (byte[] app : apps) {
+            JsonNode appdesc = client.rpc(client.getURI(FidesmoApiClient.APP_INFO_URL, HexUtils.bin2hex(app)));
+            // Multilanguague
+            String appID = HexUtils.bin2hex(app);
+            String appName = FidesmoApiClient.lamei18n(appdesc.get("name"));
+            String appVendor = FidesmoApiClient.lamei18n(appdesc.get("organization").get("name"));
+            FidesmoApp fidesmoApp = new FidesmoApp(app, appName, appVendor);
+            // Fetch services
+            JsonNode services = client.rpc(client.getURI(FidesmoApiClient.APP_SERVICES_URL, appID));
+            if (services.size() > 0) {
+                for (JsonNode s : services) {
+                    if (verbose) {
+                        JsonNode service = client.rpc(client.getURI(FidesmoApiClient.SERVICE_URL, appID, s.asText()));
+                        JsonNode d = service.get("description").get("description");
+                        fidesmoApp.addService(new FidesmoService(s.asText(), FidesmoApiClient.lamei18n(service.get("description").get("description"))));
+                    } else {
+                        fidesmoApp.addService(new FidesmoService(s.asText(), null));
+                    }
+
+                }
+            }
+            result.add(fidesmoApp);
+        }
+        return result;
+    }
+
+    private static void printApps(List<FidesmoApp> apps, PrintStream out, boolean verbose) {
+        // Display list in one go.
+        out.println("#  appId - name and vendor");
+        for (FidesmoApp app : apps) {
+            out.println(HexUtils.bin2hex(app.id).toLowerCase() + " - " + app.name + " (by " + app.vendor + ")");
+            if (app.services.size() > 0) {
+                if (verbose) {
+                    for (FidesmoService service: app.services) {
+                        out.println("           " + service.name + " - " + service.description);
+                    }
+                } else {
+                    out.println("           Services: " + String.join(", ", app.services.stream().map(e -> e.name).collect(Collectors.toList())));
+                }
+            }
         }
     }
 
@@ -261,5 +302,33 @@ public class Main extends CommandLineInterface {
             client.setTrace(true);
         }
         return client;
+    }
+
+    private static class FidesmoService {
+        String name;
+        String description;
+
+        public FidesmoService(String name, String description) {
+            this.name = name;
+            this.description = description;
+        }
+    }
+
+    private static class FidesmoApp {
+        byte[] id;
+        String name;
+        String vendor;
+        List<FidesmoService> services;
+
+        public FidesmoApp(byte[] id, String name, String vendor) {
+            this.id = id;
+            this.name = name;
+            this.vendor = vendor;
+            this.services = new ArrayList<>();
+        }
+
+        void addService(FidesmoService service) {
+            services.add(service);
+        }
     }
 }

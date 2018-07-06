@@ -25,10 +25,13 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
+import java.util.Map;
 
 public class FidesmoApiClient {
     public static final String APIv2 = "https://api.fidesmo.com/v2/";
 
+    public static final String APPS_URL = "apps";
     public static final String APP_INFO_URL = "apps/%s";
     public static final String APP_SERVICES_URL = "apps/%s/services";
 
@@ -108,6 +111,7 @@ public class FidesmoApiClient {
         }
         return false;
     }
+
     CloseableHttpResponse transmit(HttpRequestBase request) throws IOException {
         if (appId != null && appKey != null) {
             request.setHeader("app_id", appId);
@@ -183,6 +187,21 @@ public class FidesmoApiClient {
             return version;
         } catch (IOException e) {
             return "unknown-error";
+        }
+    }
+
+    // Prefer English if system locale is not present
+    // to convert a possible multilanguage node to a string
+    public static String lamei18n(JsonNode n) {
+        // For missing values XXX
+        if (n == null)
+            return "";
+        if (n.size() > 0) {
+            Map<String, Object> langs = (Map<String, Object>) mapper.convertValue(n, Map.class);
+            Map.Entry<String, Object> first = langs.entrySet().iterator().next();
+            return langs.getOrDefault(Locale.getDefault().getLanguage(), langs.getOrDefault("en", first.getValue())).toString();
+        } else {
+            return n.asText();
         }
     }
 }
