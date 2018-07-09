@@ -7,7 +7,7 @@ More information in the [WIKI](https://github.com/fidesmo/fdsm/wiki)
 You will need [Maven](https://maven.apache.org/).
 
 Enter
-````mvn package````
+`mvn package`
 
 and a brand new `fdsm.jar` will be generated in `fdsm/target`
 
