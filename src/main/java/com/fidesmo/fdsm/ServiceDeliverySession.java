@@ -35,10 +35,8 @@ public class ServiceDeliverySession {
 
         deliveryrequest.put("appId", appId);
         deliveryrequest.put("serviceId", serviceId);
-        // Service description. Needs signature and title
-        ObjectNode desc = deliveryrequest.putObject("description");
-        desc.set("signature", service.get("description").get("signature"));
-        desc.put("title", FidesmoApiClient.lamei18n(service.get("description").get("title")));
+        // Service description. Echoed verbatim
+        deliveryrequest.set("description", service.get("description"));
 
 
         cardId.put("iin", HexUtils.bin2hex(card.getIIN()));
