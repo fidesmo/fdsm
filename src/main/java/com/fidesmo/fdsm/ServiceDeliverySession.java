@@ -56,10 +56,10 @@ public class ServiceDeliverySession {
 
             if (fetch.get("completed").asBoolean()) {
                 if (fetch.get("status").get("success").asBoolean()) {
-                    System.out.println("Success: " + fetch.get("status").get("message").asText());
+                    System.out.println("Success: " + FidesmoApiClient.lamei18n(fetch.get("status").get("message")));
                     return true;
                 } else {
-                    System.out.println("Failure: " + fetch.get("status").get("message").asText());
+                    System.out.println("Failure: " + FidesmoApiClient.lamei18n(fetch.get("status").get("message")));
                     return false;
                 }
             }
