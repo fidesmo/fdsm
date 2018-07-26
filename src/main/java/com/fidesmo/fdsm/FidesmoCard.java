@@ -13,14 +13,18 @@ import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.ByteBuffer;
 import java.util.*;
 
 // Represents a live, personalized Fidesmo card
 public class FidesmoCard {
+    // Capabilities applet AID
     public static final AID FIDESMO_APP_AID = AID.fromString("A000000617020002000001");
     private final CardChannel channel;
     private byte[] iin = null;
     private byte[] cin = null;
+    int platformVersion = 1;
+    int platformType = 1;
 
     private FidesmoCard(CardChannel channel) {
         this.channel = channel;
@@ -92,16 +96,29 @@ public class FidesmoCard {
         if (response.getSW() != 0x9000)
             return false;
         cin = response.getData();
-        // Read batch data
+        // Read capabilities
         CommandAPDU selectFidesmo = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, FIDESMO_APP_AID.getBytes());
         response = channel.transmit(selectFidesmo);
         if (response.getSW() != 0x9000)
             return false;
+        // get fidesmo platform versions and types
+        BerTlvParser parser = new BerTlvParser();
+        BerTlvs tlvs = parser.parse(response.getData());
+        BerTlv platformVersionTag = tlvs.find(new BerTag(0x41));
+        if (platformVersionTag != null) {
+            ByteBuffer platformValue = ByteBuffer.wrap(platformVersionTag.getBytesValue());
+            platformVersion = platformValue.getInt();
+        }
+        BerTlv platformTypeTag = tlvs.find(new BerTag(0x45));
+        if (platformTypeTag != null) {
+            ByteBuffer platformTypeValue = ByteBuffer.wrap(platformTypeTag.getBytesValue());
+            platformType = platformTypeValue.getInt();
+        }
         return true;
     }
 
     public List<byte[]> listApps() throws CardException {
-        // Fidesmo apps prefix
+        // Fidesmo RID
         final byte[] prefix = HexUtils.hex2bin("A00000061701");
         List<byte[]> apps = new LinkedList<>();
         CommandAPDU select = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, prefix);
@@ -110,11 +127,12 @@ public class FidesmoCard {
             response = channel.transmit(select);
             if (response.getSW() == 0x9000) {
                 byte[] aid = extractAid(response.getData());
-                if (aid == null)
-                    throw new CardException("Invalid response from card: " + HexUtils.bin2hex(response.getData()));
-                byte[] appID = Arrays.copyOfRange(aid, 6, 10);
-
-                apps.add(appID);
+                // We assume it is a SSD if we can extract the AID from FCI
+                if (aid != null) {
+                    byte[] appID = Arrays.copyOfRange(aid, 6, 10);
+                    apps.add(appID);
+                }
+                // Select next
                 select = new CommandAPDU(0x00, 0xA4, 0x04, 0x02, prefix);
             }
         } while (response.getSW() == 0x9000);

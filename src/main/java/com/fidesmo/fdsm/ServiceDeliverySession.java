@@ -41,9 +41,17 @@ public class ServiceDeliverySession {
 
         cardId.put("iin", HexUtils.bin2hex(card.getIIN()));
         cardId.put("cin", HexUtils.bin2hex(card.getCIN()));
-        cardId.put("platformVersion", 1); // FIXME: what? why? Why backend can't figure it out?
+        cardId.put("platformVersion", card.platformVersion); // XXX: required here but repeated in capabilities
 
         deliveryrequest.set("cardId", cardId);
+        // Empty fields node
+        deliveryrequest.set("fields", JsonNodeFactory.instance.objectNode());
+
+        // Capabilities, partial
+        ObjectNode capabilities = JsonNodeFactory.instance.objectNode();
+        capabilities.put("platformVersion", card.platformVersion);
+        capabilities.put("osTypeVersion", card.platformType);
+        deliveryrequest.set("capabilities", capabilities);
 
         JsonNode delivery = client.rpc(client.getURI(FidesmoApiClient.SERVICE_DELIVER_URL), deliveryrequest);
         String sessionId = delivery.get("sessionId").asText();

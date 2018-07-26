@@ -139,7 +139,7 @@ public class Main extends CommandLineInterface {
             }
 
             // Following requires card access
-            if (args.has(OPT_INSTALL) || args.has(OPT_UNINSTALL) || args.has(OPT_STORE_DATA) || args.has(OPT_DELIVER) || args.has(OPT_CARD_APPS)) {
+            if (args.has(OPT_INSTALL) || args.has(OPT_UNINSTALL) || args.has(OPT_STORE_DATA) || args.has(OPT_DELIVER) || args.has(OPT_CARD_APPS) || args.has(OPT_CARD_INFO)) {
                 // Locate a Fidesmo card
                 CardTerminal terminal = TerminalManager.getByAID(Collections.singletonList(FidesmoCard.FIDESMO_APP_AID.getBytes()));
                 if (apduTrace) {
@@ -149,7 +149,11 @@ public class Main extends CommandLineInterface {
                 fidesmoCard = FidesmoCard.getInstance(card.getBasicChannel());
                 System.out.println("Using card in " + terminal.getName());
 
-                if (args.has(OPT_CARD_APPS)) {
+                if (args.has(OPT_CARD_INFO)) {
+                    System.out.println("Card serial: " + HexUtils.bin2hex(fidesmoCard.getCIN()));
+                    System.out.println("Platform version: " + fidesmoCard.platformVersion);
+                    System.out.println("OS type: " + fidesmoCard.platformType);
+                } else if (args.has(OPT_CARD_APPS)) {
                     FidesmoApiClient client = getClient();
                     List<byte[]> apps = fidesmoCard.listApps();
                     if (apps.size() > 0) {
