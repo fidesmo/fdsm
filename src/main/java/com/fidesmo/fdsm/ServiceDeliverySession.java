@@ -51,6 +51,9 @@ public class ServiceDeliverySession {
         ObjectNode capabilities = JsonNodeFactory.instance.objectNode();
         capabilities.put("platformVersion", card.platformVersion);
         capabilities.put("osTypeVersion", card.platformType);
+        // FIXME: can be derived from osTypeVersion table, but required by recipe backend
+        capabilities.put("globalPlatformVersion", 0x0202); // FIXME: broken value
+        capabilities.put("jcVersion", 0x0300); // FIXME: irrelevant value (minor counts)
         deliveryrequest.set("capabilities", capabilities);
 
         JsonNode delivery = client.rpc(client.getURI(FidesmoApiClient.SERVICE_DELIVER_URL), deliveryrequest);
