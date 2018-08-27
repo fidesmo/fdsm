@@ -8,6 +8,8 @@ addons:
   apt:
     packages:
     - libc6:i386
+before_deploy:
+- mvn -P release package
 deploy:
   - provider: releases
     prerelease: true
