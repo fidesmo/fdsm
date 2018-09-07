@@ -70,6 +70,7 @@ public class ServiceDeliverySession {
         // Capabilities, partial
         ObjectNode capabilities = JsonNodeFactory.instance.objectNode();
         capabilities.put("platformVersion", card.platformVersion);
+        capabilities.put("mifareType", card.mifareType);
         capabilities.put("osTypeVersion", card.platformType);
         capabilities.put("globalPlatformVersion", 0x0202); // Fixed to GlobalPlatform 2.2
         capabilities.put("jcVersion", 0x0300); // Fixed to JavaCard 3.0

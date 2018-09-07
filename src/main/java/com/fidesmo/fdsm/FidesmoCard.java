@@ -46,6 +46,7 @@ public class FidesmoCard {
     private byte[] cin = null;
     int platformVersion = 1;
     int platformType = 1;
+    int mifareType = 2;
 
     private FidesmoCard(CardChannel channel) {
         this.channel = channel;
@@ -129,6 +130,11 @@ public class FidesmoCard {
         if (platformVersionTag != null) {
             ByteBuffer platformValue = ByteBuffer.wrap(platformVersionTag.getBytesValue());
             platformVersion = platformValue.getInt();
+        }
+        BerTlv mifareTag = tlvs.find(new BerTag(0x42));
+        if (mifareTag != null) {
+            ByteBuffer mifareValue = ByteBuffer.wrap(mifareTag.getBytesValue());
+            mifareType = mifareValue.get(0);
         }
         BerTlv platformTypeTag = tlvs.find(new BerTag(0x45));
         if (platformTypeTag != null) {
