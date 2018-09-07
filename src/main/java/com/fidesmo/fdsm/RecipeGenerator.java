@@ -22,6 +22,7 @@
 package com.fidesmo.fdsm;
 
 import apdu4j.HexUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -29,6 +30,7 @@ import pro.javacard.AID;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class RecipeGenerator {
     public static String makeInstallRecipe(AID pkg, AID app, AID instance, byte[] params) throws IOException {
@@ -84,6 +86,26 @@ public class RecipeGenerator {
             content.put("data", HexUtils.bin2hex(payload));
             actions.add(action);
         }
+        return r.toString();
+    }
+
+    public static String makeSecureTransceiveRecipe(AID app, List<byte[]> apdus) throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+
+        ObjectNode r = JsonNodeFactory.instance.objectNode();
+        r.putObject("failureMessage").put("en", "Could not send apdus to " + app);
+        r.putObject("successMessage").put("en", "Successfully sent apdus to " + app);
+        r.putObject("description").put("title", "Secure send apdus to " + app);
+        ArrayNode actions = r.putArray("actions");
+
+        // All APDU-s are sent in one batch, without a reply
+        ObjectNode action = JsonNodeFactory.instance.objectNode();
+        action.put("endpoint", "/secure-transceive");
+        ObjectNode content = action.putObject("content");
+        content.put("application", app.toString());
+        content.set("commands", mapper.valueToTree(apdus.stream().map(i -> HexUtils.bin2hex(i)).collect(Collectors.toList())));
+        actions.add(action);
+
         return r.toString();
     }
 }

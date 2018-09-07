@@ -59,11 +59,11 @@ public class FidesmoCard {
         return card;
     }
 
-    public void deliverRecipe(AuthenticatedFidesmoApiClient client, String recipe) throws CardException, IOException {
-        deliverRecipes(client, Collections.singletonList(recipe));
+    public boolean deliverRecipe(AuthenticatedFidesmoApiClient client, String recipe) throws CardException, IOException {
+        return deliverRecipes(client, Collections.singletonList(recipe));
     }
 
-    public void deliverRecipes(AuthenticatedFidesmoApiClient client, List<String> recipes) throws CardException, IOException {
+    public boolean deliverRecipes(AuthenticatedFidesmoApiClient client, List<String> recipes) throws CardException, IOException {
         ServiceDeliverySession session = ServiceDeliverySession.getInstance(this, client);
 
         for (String recipe : recipes) {
@@ -82,12 +82,13 @@ public class FidesmoCard {
             Runtime.getRuntime().addShutdownHook(cleanup);
 
             try {
-                session.deliver(client.getAppId(), uuid);
+                return session.deliver(client.getAppId(), uuid);
             } finally {
                 client.delete(uri);
                 Runtime.getRuntime().removeShutdownHook(cleanup);
             }
         }
+        return false;
     }
 
     public byte[] transmit(byte[] bytes) throws CardException {

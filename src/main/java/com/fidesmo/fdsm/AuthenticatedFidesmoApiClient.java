@@ -45,6 +45,10 @@ public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
             cap = new FidesmoCapFile(in);
         }
 
+        if (cap.guessJavaCardVersion().equals("3.0.5")) {
+            throw new IOException("Fidesmo supports JavaCard up to version 3.0.4");
+        }
+
         try (InputStream in = new FileInputStream(path)) {
             HttpPost post = new HttpPost(getURI(ELF_URL));
             // Metadata headers
