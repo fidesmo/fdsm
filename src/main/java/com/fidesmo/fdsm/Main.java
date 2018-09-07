@@ -159,7 +159,7 @@ public class Main extends CommandLineInterface {
             }
 
             // Following requires card access
-            if (args.has(OPT_INSTALL) || args.has(OPT_UNINSTALL) || args.has(OPT_STORE_DATA) || args.has(OPT_DELIVER) || args.has(OPT_CARD_APPS) || args.has(OPT_CARD_INFO)) {
+            if (args.has(OPT_INSTALL) || args.has(OPT_UNINSTALL) || args.has(OPT_STORE_DATA) || args.has(OPT_DELIVER) || args.has(OPT_CARD_APPS) || args.has(OPT_CARD_INFO) || args.has(OPT_SECURE_APDU)) {
                 // Locate a Fidesmo card
                 CardTerminal terminal = TerminalManager.getByAID(Collections.singletonList(FidesmoCard.FIDESMO_APP_AID.getBytes()));
                 if (apduTrace) {
@@ -243,6 +243,16 @@ public class Main extends CommandLineInterface {
                         }
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET).toString());
                         String recipe = RecipeGenerator.makeStoreDataRecipe(applet, blobs);
+                        fidesmoCard.deliverRecipe(client, recipe);
+                    }
+
+                    if (args.has(OPT_SECURE_APDU)) {
+                        List<byte[]> apdus = new ArrayList<>();
+                        for (Object s : args.valuesOf(OPT_SECURE_APDU)) {
+                            apdus.add(HexUtils.stringToBin((String) s));
+                        }
+                        AID applet = AID.fromString(args.valueOf(OPT_APPLET).toString());
+                        String recipe = RecipeGenerator.makeSecureTransceiveRecipe(applet, apdus);
                         fidesmoCard.deliverRecipe(client, recipe);
                     }
                 }

@@ -49,6 +49,8 @@ abstract class CommandLineInterface {
     final static String OPT_CREATE = "create";
     final static String OPT_UNINSTALL = "uninstall";
     final static String OPT_STORE_DATA = "store-data";
+    final static String OPT_SECURE_APDU = "secure-apdu";
+
     final static String OPT_TRACE_API = "trace-api";
     final static String OPT_TRACE_APDU = "trace-apdu";
     final static String OPT_VERBOSE = "verbose";
@@ -110,6 +112,7 @@ abstract class CommandLineInterface {
         parser.accepts(OPT_DELETE_APPLET, "Deletes applet from Fidesmo").withRequiredArg().describedAs("ID");
         parser.accepts(OPT_CARD_APPS, "List apps on the card");
         parser.accepts(OPT_CARD_INFO, "Show info about the card");
+        parser.accepts(OPT_SECURE_APDU, "Send APDU via secure channel").withRequiredArg().describedAs("HEX");
 
         parser.accepts(OPT_STORE_APPS, "List apps in the store");
         parser.accepts(OPT_FLUSH_APPLETS, "Flush all applets from Fidesmo");
