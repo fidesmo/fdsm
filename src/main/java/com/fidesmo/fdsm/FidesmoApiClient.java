@@ -32,6 +32,7 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -72,6 +73,7 @@ public class FidesmoApiClient {
 
     private boolean restdebug = false; // RPC debug
     private final CloseableHttpClient http;
+    private final HttpClientContext context = HttpClientContext.create();
     protected final String appId;
     protected final String appKey;
     private final String apiurl;
@@ -132,9 +134,10 @@ public class FidesmoApiClient {
             System.out.println(request.getMethod() + ": " + request.getURI());
         }
 
-        CloseableHttpResponse response = http.execute(request);
+        CloseableHttpResponse response = http.execute(request, context);
         int responsecode = response.getStatusLine().getStatusCode();
         if (responsecode < 200 || responsecode > 299) {
+            response.close();
             throw new HttpResponseException(responsecode, response.getStatusLine() + "\n" + IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8));
         }
         return response;
@@ -165,14 +168,14 @@ public class FidesmoApiClient {
         req.setHeader("Accept", ContentType.APPLICATION_JSON.toString());
         req.setHeader("Content-type", ContentType.APPLICATION_JSON.toString());
 
-        CloseableHttpResponse response = transmit(req);
-
-        JsonNode json = mapper.readTree(response.getEntity().getContent());
-        if (restdebug) {
-            System.out.println("RECV:");
-            System.out.println(mapper.writer(printer).writeValueAsString(json));
+        try(CloseableHttpResponse response = transmit(req)) {
+            JsonNode json = mapper.readTree(response.getEntity().getContent());
+            if (restdebug) {
+                System.out.println("RECV:");
+                System.out.println(mapper.writer(printer).writeValueAsString(json));
+            }
+            return json;
         }
-        return json;
     }
 
     public URI getURI(String template, String... args) {
