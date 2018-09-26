@@ -143,13 +143,15 @@ public class FidesmoCard {
             Runtime.getRuntime().addShutdownHook(cleanup);
 
             try {
-                return session.deliver(client.getAppId(), uuid);
+                if (!session.deliver(client.getAppId(), uuid)) {
+                    return false;
+                }
             } finally {
                 client.delete(uri);
                 Runtime.getRuntime().removeShutdownHook(cleanup);
             }
         }
-        return false;
+        return true;
     }
 
     public byte[] transmit(byte[] bytes) throws CardException {
