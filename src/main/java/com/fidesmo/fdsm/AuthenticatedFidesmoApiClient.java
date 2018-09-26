@@ -21,17 +21,19 @@
  */
 package com.fidesmo.fdsm;
 
+import apdu4j.HexUtils;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.ContentType;
-import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.entity.StringEntity;
+import pro.javacard.AID;
+import pro.javacard.CAPFile;
+import pro.javacard.CAPPackage;
 
-import java.io.File;
-import java.io.FileInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 
 public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
@@ -60,36 +62,52 @@ public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
 
 
     // Upload a CAP file
-    public void upload(File path) throws IOException {
-        final FidesmoCapFile cap;
-        try (InputStream in = new FileInputStream(path)) {
-            cap = new FidesmoCapFile(in);
-        }
-
+    public void upload(CAPFile cap) throws IOException {
         if (cap.guessJavaCardVersion().equals("3.0.5")) {
             throw new IOException("Fidesmo supports JavaCard up to version 3.0.4");
         }
 
-        try (InputStream in = new FileInputStream(path)) {
-            HttpPost post = new HttpPost(getURI(ELF_URL));
-            // Metadata headers
-            post.setHeader("Java-Card-Version", cap.guessJavaCardVersion());
-            // Do not send this info at this moment
-            if (cap.guessGlobalPlatformVersion() != null) {
-                String gpver = cap.guessGlobalPlatformVersion();
-                // Always "upgrade" to (and verify against) 2.2
-                if (gpver.equals("2.1.1"))
-                    gpver = "2.2";
-                post.setHeader("Global-Platform-Version", gpver);
-            }
-            if (cap.isJCOP242R2()) {
-                post.setHeader("OS-Type-Version", "JCOP 2.4.2r2");
-            } else if (cap.isJCOP242R1()) {
-                post.setHeader("OS-Type-Version", "JCOP 2.4.2r1");
-            }
-            // CAP content
-            post.setEntity(new InputStreamEntity(in));
-            transmit(post);
+        HttpPost post = new HttpPost(getURI(ELF_URL));
+        // Metadata headers
+        post.setHeader("Java-Card-Version", cap.guessJavaCardVersion());
+        // Do not send this info at this moment
+        if (cap.guessGlobalPlatformVersion() != null) {
+            String gpver = cap.guessGlobalPlatformVersion();
+            // Always "upgrade" to (and verify against) 2.2
+            if (gpver.equals("2.1.1"))
+                gpver = "2.2";
+            post.setHeader("Global-Platform-Version", gpver);
         }
+        if (isJCOP242R2(cap)) {
+            post.setHeader("OS-Type-Version", "JCOP 2.4.2r2");
+        } else if (isJCOP242R1(cap)) {
+            post.setHeader("OS-Type-Version", "JCOP 2.4.2r1");
+        }
+
+        // CAP content
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        cap.store(bos);
+        post.setEntity(new ByteArrayEntity(bos.toByteArray()));
+        transmit(post);
+    }
+
+
+    private static boolean isJCOPX(CAPFile cap, String version) {
+        AID jcop = new AID(HexUtils.hex2bin("D276000085494A434F5058"));
+        for (CAPPackage p : cap.getImports()) {
+            if (p.getAid().equals(jcop) && p.getVersionString().equals(version))
+                return true;
+        }
+        return false;
+    }
+
+    public static boolean isJCOP242R2(CAPFile cap) {
+        // JC 3.0.1, GP 2.2.1, JCOPX 8.0
+        return isJCOPX(cap, "8.0");
+    }
+
+    public static boolean isJCOP242R1(CAPFile cap) {
+        // JC 3.0.1, GP 2.1.1, JCOPX 7.0
+        return isJCOPX(cap, "7.0");
     }
 }

@@ -22,6 +22,7 @@
 package com.fidesmo.fdsm;
 
 import apdu4j.HexUtils;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.core.util.DefaultIndenter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -168,7 +169,7 @@ public class FidesmoApiClient {
         req.setHeader("Accept", ContentType.APPLICATION_JSON.toString());
         req.setHeader("Content-type", ContentType.APPLICATION_JSON.toString());
 
-        try(CloseableHttpResponse response = transmit(req)) {
+        try (CloseableHttpResponse response = transmit(req)) {
             JsonNode json = mapper.readTree(response.getEntity().getContent());
             if (restdebug) {
                 System.out.println("RECV:");
@@ -211,7 +212,7 @@ public class FidesmoApiClient {
         if (n == null)
             return "";
         if (n.size() > 0) {
-            Map<String, Object> langs = (Map<String, Object>) mapper.convertValue(n, Map.class);
+            Map<String, Object> langs = mapper.convertValue(n, new TypeReference<Map<String, Object>>() {});
             Map.Entry<String, Object> first = langs.entrySet().iterator().next();
             return langs.getOrDefault(Locale.getDefault().getLanguage(), langs.getOrDefault("en", first.getValue())).toString();
         } else {

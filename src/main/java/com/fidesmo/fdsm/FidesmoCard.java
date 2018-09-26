@@ -39,11 +39,72 @@ import java.util.*;
 
 // Represents a live, personalized Fidesmo card
 public class FidesmoCard {
+    public enum ChipPlatform {
+        JCOP242R1,
+        JCOP242R2,
+        JCOP3EMV,
+        JCOP3SECIDCS,
+        ST31
+    }
+
+    static HashMap<byte[], ChipPlatform> CPLC_PLATFORMS = new HashMap<>();
+
+    static {
+        // ICFabricator=4790
+        // ICType=5168
+        // OperatingSystemID=4791
+        // OperatingSystemReleaseDate=1210 (2011-07-29)
+        // OperatingSystemReleaseLevel=3800
+        CPLC_PLATFORMS.put(HexUtils.hex2bin("47905168479112103800"), ChipPlatform.JCOP242R1);
+
+        // ICFabricator=4790
+        // ICType=5075
+        // OperatingSystemID=4791
+        // OperatingSystemReleaseDate=2081 (2012-03-21)
+        // OperatingSystemReleaseLevel=3B00
+        CPLC_PLATFORMS.put(HexUtils.hex2bin("47905075479120813B00"), ChipPlatform.JCOP242R2);
+
+        // ICFabricator=4790
+        // ICType=6B64
+        // OperatingSystemID=4700
+        // OperatingSystemReleaseDate=E4D8 (invalid date format)
+        // OperatingSystemReleaseLevel=0300
+        CPLC_PLATFORMS.put(HexUtils.hex2bin("47906B644700E4D80300"), ChipPlatform.JCOP3EMV);
+
+        // ICFabricator=4790
+        // ICType=0503
+        // OperatingSystemID=8211
+        // OperatingSystemReleaseDate=6351 (2016-12-16)
+        // OperatingSystemReleaseLevel=0302
+        CPLC_PLATFORMS.put(HexUtils.hex2bin("47900503821163510302"), ChipPlatform.JCOP3SECIDCS);
+
+        // ICFabricator=4750
+        // ICType=00B8
+        // OperatingSystemID=4750
+        // OperatingSystemReleaseDate=7248 (2017-09-05)
+        // OperatingSystemReleaseLevel=5431
+        CPLC_PLATFORMS.put(HexUtils.hex2bin("475000B8475072485431"), ChipPlatform.ST31);
+    }
+
+    // Given CPLC, detect the platform from enumeration
+    public static ChipPlatform detectPlatform(byte[] cplc) {
+        for (Map.Entry<byte[], ChipPlatform> e : CPLC_PLATFORMS.entrySet()) {
+            if (Arrays.equals(e.getKey(), Arrays.copyOf(cplc, e.getKey().length)))
+                return e.getValue();
+        }
+        return null;
+    }
+
     // Capabilities applet AID
     public static final AID FIDESMO_APP_AID = AID.fromString("A000000617020002000001");
+    public static final AID FIDESMO_BATCH_AID = AID.fromString("A000000617020002000002");
+
     private final CardChannel channel;
     private byte[] iin = null;
     private byte[] cin = null;
+    private byte[] cplc = null;
+    private byte[] batchId = null;
+
     int platformVersion = 1;
     int platformType = 1;
     int mifareType = 2;
@@ -103,11 +164,30 @@ public class FidesmoCard {
         return cin.clone();
     }
 
+    public byte[] getBatchId() {
+        return batchId.clone();
+    }
+
+    public ChipPlatform getPlatform() {
+        return detectPlatform(cplc);
+    }
+
     public boolean detect() throws CardException {
+        // Select ISD
         CommandAPDU selectISD = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, 0x00);
         ResponseAPDU response = channel.transmit(selectISD);
         if (response.getSW() != 0x9000)
             return false;
+        // Get CPLC
+        CommandAPDU getCPLC = new CommandAPDU(0x80, 0xCA, 0x9F, 0x7F, 0x00);
+        response = channel.transmit(getCPLC);
+        if (response.getSW() != 0x9000)
+            return false;
+        byte[] data = response.getData();
+        // Remove tag, if present
+        if (data[0] == (byte) 0x9f && data[1] == (byte) 0x7f && data[2] == (byte) 0x2A)
+            data = Arrays.copyOfRange(data, 3, data.length);
+        cplc = data;
         // Read IIN + CIN
         CommandAPDU getDataIIN = new CommandAPDU(0x00, 0xCA, 0x00, 0x42, 0x00);
         response = channel.transmit(getDataIIN);
@@ -119,14 +199,27 @@ public class FidesmoCard {
         if (response.getSW() != 0x9000)
             return false;
         cin = response.getData();
+
+        // Read batchID
+        CommandAPDU selectFidesmoBatch = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, FIDESMO_BATCH_AID.getBytes());
+        response = channel.transmit(selectFidesmoBatch);
+        if (response.getSW() != 0x9000)
+            return false;
+        BerTlvParser parser = new BerTlvParser();
+        BerTlvs tlvs = parser.parse(response.getData());
+        BerTlv batchIdTag = tlvs.find(new BerTag(0x42));
+        if (batchIdTag != null) {
+            batchId = batchIdTag.getBytesValue();
+        }
+
         // Read capabilities
-        CommandAPDU selectFidesmo = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, FIDESMO_APP_AID.getBytes());
-        response = channel.transmit(selectFidesmo);
+        CommandAPDU selectFidesmoCapabilities = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, FIDESMO_APP_AID.getBytes());
+        response = channel.transmit(selectFidesmoCapabilities);
         if (response.getSW() != 0x9000)
             return false;
         // get fidesmo platform versions and types
-        BerTlvParser parser = new BerTlvParser();
-        BerTlvs tlvs = parser.parse(response.getData());
+        parser = new BerTlvParser();
+        tlvs = parser.parse(response.getData());
         BerTlv platformVersionTag = tlvs.find(new BerTag(0x41));
         if (platformVersionTag != null) {
             ByteBuffer platformValue = ByteBuffer.wrap(platformVersionTag.getBytesValue());
