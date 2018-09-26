@@ -149,7 +149,8 @@ public class Main extends CommandLineInterface {
                 }
 
                 if (args.has(OPT_UPLOAD) && args.valueOf(OPT_UPLOAD) != null) {
-                    client.upload((File) args.valueOf(OPT_UPLOAD));
+                    CAPFile cap = CAPFile.fromStream(new FileInputStream((File) args.valueOf(OPT_UPLOAD)));
+                    client.upload(cap);
                 } else if (args.has(OPT_FLUSH_APPLETS)) {
                     JsonNode applets = client.rpc(client.getURI(FidesmoApiClient.ELF_URL));
                     for (JsonNode e : applets) {
@@ -227,8 +228,9 @@ public class Main extends CommandLineInterface {
                             }
                         }
                         String recipe = RecipeGenerator.makeInstallRecipe(cap.getPackageAID(), applet, instance, params);
-                        if (args.has(OPT_UPLOAD))
-                            client.upload((File) args.valueOf(OPT_INSTALL));
+                        if (args.has(OPT_UPLOAD)) {
+                            client.upload(cap);
+                        }
                         fidesmoCard.deliverRecipe(client, recipe);
                     } else if (args.has(OPT_UNINSTALL)) {
                         CAPFile cap = CAPFile.fromStream(new FileInputStream((File) args.valueOf(OPT_UNINSTALL)));
@@ -307,7 +309,7 @@ public class Main extends CommandLineInterface {
             out.println(HexUtils.bin2hex(app.id).toLowerCase() + " - " + app.name + " (by " + app.vendor + ")");
             if (app.services.size() > 0) {
                 if (verbose) {
-                    for (FidesmoService service: app.services) {
+                    for (FidesmoService service : app.services) {
                         out.println("           " + service.name + " - " + service.description);
                     }
                 } else {

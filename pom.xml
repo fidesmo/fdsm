@@ -6,10 +6,10 @@
 
     <groupId>com.fidesmo</groupId>
     <artifactId>fdsm</artifactId>
-    <version>18.08.27</version>
+    <version>18.09.26</version>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.version.windows>18.8.27.1</project.version.windows>
+        <project.version.windows>18.9.26.0</project.version.windows>
     </properties>
 
     <!-- Necessary metadata for Maven Central -->
@@ -55,7 +55,7 @@
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
             <artifactId>capfile</artifactId>
-            <version>18.06.27</version>
+            <version>18.09.25.1</version>
         </dependency>
         <!-- Card reader access -->
         <dependency>
