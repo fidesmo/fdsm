@@ -3,13 +3,13 @@ language: java
 jdk:
 - oraclejdk8
 script:
-- mvn -U -B clean compile findbugs:check package
+- mvn -U -B clean verify
 addons:
   apt:
     packages:
     - libc6:i386
 before_deploy:
-- mvn -P release package
+- mvn -P release clean verify
 deploy:
   - provider: releases
     prerelease: true
