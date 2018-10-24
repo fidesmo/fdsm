@@ -138,8 +138,9 @@ public class FidesmoApiClient {
         CloseableHttpResponse response = http.execute(request, context);
         int responsecode = response.getStatusLine().getStatusCode();
         if (responsecode < 200 || responsecode > 299) {
+            String message = response.getStatusLine() + "\n" + IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
             response.close();
-            throw new HttpResponseException(responsecode, response.getStatusLine() + "\n" + IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8));
+            throw new HttpResponseException(responsecode, message);
         }
         return response;
     }

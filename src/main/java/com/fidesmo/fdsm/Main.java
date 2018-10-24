@@ -184,6 +184,7 @@ public class Main extends CommandLineInterface {
                     }
                 } else if (args.has(OPT_DELIVER)) {
                     FidesmoApiClient client = getClient();
+                    FormHandler formHandler = getCommandLineFormHandler();
 
                     String service = args.valueOf(OPT_DELIVER).toString();
                     if (service.contains("/")) {
@@ -198,10 +199,11 @@ public class Main extends CommandLineInterface {
                     if (appId == null) {
                         fail("Need Application ID");
                     }
-                    ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client);
+                    ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, formHandler);
                     cardSession.deliver(appId, service);
                 } else {
                     AuthenticatedFidesmoApiClient client = getAuthenticatedClient();
+                    FormHandler formHandler = getCommandLineFormHandler();
 
                     if (args.has(OPT_INSTALL)) {
                         CAPFile cap = CAPFile.fromStream(new FileInputStream((File) args.valueOf(OPT_INSTALL)));
@@ -231,11 +233,11 @@ public class Main extends CommandLineInterface {
                         if (args.has(OPT_UPLOAD)) {
                             client.upload(cap);
                         }
-                        fidesmoCard.deliverRecipe(client, recipe);
+                        fidesmoCard.deliverRecipe(client, formHandler, recipe);
                     } else if (args.has(OPT_UNINSTALL)) {
                         CAPFile cap = CAPFile.fromStream(new FileInputStream((File) args.valueOf(OPT_UNINSTALL)));
                         String recipe = RecipeGenerator.makeDeleteRecipe(cap.getPackageAID());
-                        fidesmoCard.deliverRecipe(client, recipe);
+                        fidesmoCard.deliverRecipe(client, formHandler, recipe);
                     }
 
                     if (args.has(OPT_STORE_DATA)) {
@@ -245,7 +247,7 @@ public class Main extends CommandLineInterface {
                         }
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET).toString());
                         String recipe = RecipeGenerator.makeStoreDataRecipe(applet, blobs);
-                        fidesmoCard.deliverRecipe(client, recipe);
+                        fidesmoCard.deliverRecipe(client, formHandler, recipe);
                     }
 
                     if (args.has(OPT_SECURE_APDU)) {
@@ -255,10 +257,14 @@ public class Main extends CommandLineInterface {
                         }
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET).toString());
                         String recipe = RecipeGenerator.makeSecureTransceiveRecipe(applet, apdus);
-                        fidesmoCard.deliverRecipe(client, recipe);
+                        fidesmoCard.deliverRecipe(client, formHandler, recipe);
                     }
                 }
             }
+        } catch (UserCancelledException e) {
+            fail("Cancelled: " + e.getMessage());
+        } catch (NotSupportedException e) {
+            fail("Not supported: " + e.getMessage());
         } catch (HttpResponseException e) {
             fail("API error: " + e.getMessage());
         } catch (IOException e) {
@@ -325,6 +331,28 @@ public class Main extends CommandLineInterface {
             client.setTrace(true);
         }
         return client;
+    }
+
+    private static FormHandler getCommandLineFormHandler() {
+        Map<String, String> cliFields = new HashMap<>();
+
+        if (args.has(OPT_FIELDS)) {
+            String[] fieldPairs = args.valueOf(OPT_FIELDS).toString().split(",");
+
+            for (String pair : fieldPairs) {
+                if (!pair.isEmpty()) {
+                    String[] fieldAndValue = pair.split("=");
+
+                    if (fieldAndValue.length != 2) {
+                        fail("Wrong format for fields pair: " + pair + ". Required: fieldId=fieldValue,");
+                    }
+
+                    cliFields.put(fieldAndValue[0], fieldAndValue[1]);
+                }
+            }
+        }
+
+        return new CommandLineFormHandler(cliFields);
     }
 
     private static AuthenticatedFidesmoApiClient getAuthenticatedClient() {

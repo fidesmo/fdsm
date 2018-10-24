@@ -120,12 +120,12 @@ public class FidesmoCard {
         return card;
     }
 
-    public boolean deliverRecipe(AuthenticatedFidesmoApiClient client, String recipe) throws CardException, IOException {
-        return deliverRecipes(client, Collections.singletonList(recipe));
+    public boolean deliverRecipe(AuthenticatedFidesmoApiClient client, FormHandler formHandler, String recipe) throws CardException, IOException {
+        return deliverRecipes(client, formHandler, Collections.singletonList(recipe));
     }
 
-    public boolean deliverRecipes(AuthenticatedFidesmoApiClient client, List<String> recipes) throws CardException, IOException {
-        ServiceDeliverySession session = ServiceDeliverySession.getInstance(this, client);
+    public boolean deliverRecipes(AuthenticatedFidesmoApiClient client, FormHandler formHandler, List<String> recipes) throws CardException, IOException {
+        ServiceDeliverySession session = ServiceDeliverySession.getInstance(this, client, formHandler);
 
         for (String recipe : recipes) {
             String uuid = UUID.randomUUID().toString();

@@ -50,6 +50,7 @@ abstract class CommandLineInterface {
     final static String OPT_UNINSTALL = "uninstall";
     final static String OPT_STORE_DATA = "store-data";
     final static String OPT_SECURE_APDU = "secure-apdu";
+    final static String OPT_FIELDS = "fields";
 
     final static String OPT_TRACE_API = "trace-api";
     final static String OPT_TRACE_APDU = "trace-apdu";
@@ -106,7 +107,10 @@ abstract class CommandLineInterface {
         parser.accepts(OPT_APP_KEY, "Specify application key").withRequiredArg().describedAs("HEX");
         parser.accepts(OPT_STORE_DATA, "STORE DATA to applet").withRequiredArg().describedAs("HEX");
         parser.accepts(OPT_APPLET, "Specify applet").requiredIf(OPT_STORE_DATA).withRequiredArg().describedAs("AID");
+
         parser.accepts(OPT_DELIVER, "Deliver service").withRequiredArg().describedAs("appId/serviceId");
+        parser.accepts(OPT_FIELDS, "Service fields").withRequiredArg().describedAs("fieldId=value,...");
+
         parser.accepts(OPT_UPLOAD, "Upload CAP to Fidesmo").withOptionalArg().ofType(File.class).describedAs("CAP file");
         parser.accepts(OPT_LIST_APPLETS, "List applets at Fidesmo");
         parser.accepts(OPT_DELETE_APPLET, "Deletes applet from Fidesmo").withRequiredArg().describedAs("ID");
@@ -160,6 +164,7 @@ abstract class CommandLineInterface {
     }
 
     static void fail(String message) {
+        System.err.println();
         System.err.println(message);
         System.exit(1);
     }
