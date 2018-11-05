@@ -41,7 +41,7 @@ import java.security.cert.X509Certificate;
 import java.security.spec.MGF1ParameterSpec;
 import java.util.*;
 
-// Delivers a service (with no user interaction) to a card
+// Delivers a service to a card
 public class ServiceDeliverySession {
     private final FidesmoApiClient client;
     private final FidesmoCard card;
@@ -86,7 +86,7 @@ public class ServiceDeliverySession {
 
         // User input fields
         ArrayList<Field> fields = new ArrayList<>(fieldsFromNode(description.get("fieldsRequired")));
-        // Old style email hack
+        // Old style fields hack
         if (description.has("emailRequired"))
             fields.add(new Field("email", FidesmoApiClient.lamei18n(description.get("emailRequired")), "edit", null));
         if (description.has("msisdnRequired"))
