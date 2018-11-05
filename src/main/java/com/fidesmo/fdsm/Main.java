@@ -25,6 +25,7 @@ import apdu4j.HexUtils;
 import apdu4j.LoggingCardTerminal;
 import apdu4j.TerminalManager;
 import com.fasterxml.jackson.databind.JsonNode;
+import jnasmartcardio.Smartcardio;
 import org.apache.http.client.HttpResponseException;
 import pro.javacard.AID;
 import pro.javacard.CAPFile;
@@ -113,7 +114,7 @@ public class Main extends CommandLineInterface {
                             }
                         }
                     } else {
-                        System.out.println("No applets");
+                        success("No applets");
                     }
                 }
 
@@ -123,7 +124,7 @@ public class Main extends CommandLineInterface {
                     if (recipes.size() > 0) {
                         System.out.println(FidesmoApiClient.mapper.writer(FidesmoApiClient.printer).writeValueAsString(recipes));
                     } else {
-                        System.out.println("No recipes");
+                        success("No recipes");
                     }
                 }
 
@@ -142,9 +143,9 @@ public class Main extends CommandLineInterface {
                                 // Ignore recipes not matching uuid
                             }
                         }
-                        System.out.println("Cleaned up " + removed + " recipes");
+                        success("Cleaned up " + removed + " recipes");
                     } else {
-                        System.out.println("No recipes");
+                        success("No recipes");
                     }
                 }
 
@@ -171,16 +172,19 @@ public class Main extends CommandLineInterface {
                 System.out.println("Using card in " + terminal.getName());
 
                 if (args.has(OPT_CARD_INFO)) {
-                    System.out.println("Card serial: " + HexUtils.bin2hex(fidesmoCard.getCIN()));
-                    System.out.println("Platform version: " + fidesmoCard.platformVersion);
-                    System.out.println("OS type: " + fidesmoCard.platformType);
+                    System.out.format("CIN: %s batch: %s UID: %s\n",
+                            printableCIN(fidesmoCard.getCIN()),
+                            HexUtils.bin2hex(fidesmoCard.getBatchId()),
+                            fidesmoCard.getUID().map(i -> HexUtils.bin2hex(i)).orElse("N/A"));
+                    // For platforms that are not yet supported by fdsm
+                    System.out.format("OS type: %s (platfrom v%d)\n", FidesmoCard.ChipPlatform.valueOf(fidesmoCard.platformType).orElseThrow(() -> new NotSupportedException("Chip platform not supported")), fidesmoCard.platformVersion);
                 } else if (args.has(OPT_CARD_APPS)) {
                     FidesmoApiClient client = getClient();
                     List<byte[]> apps = fidesmoCard.listApps();
                     if (apps.size() > 0) {
                         printApps(queryApps(client, apps, verbose), System.out, verbose);
                     } else {
-                        System.out.println("No applications");
+                        success("No applications");
                     }
                 } else if (args.has(OPT_DELIVER)) {
                     FidesmoApiClient client = getClient();
@@ -271,12 +275,17 @@ public class Main extends CommandLineInterface {
             fail("I/O error: " + e.getMessage());
         } catch (CardException e) {
             fail("Card communication error: " + e.getMessage());
-        } catch (GeneralSecurityException e) {
-            fail("No smart card readers: " + e.getMessage());
+        } catch (GeneralSecurityException | Smartcardio.EstablishContextException e) {
+            String s = TerminalManager.getExceptionMessage(e);
+            fail("No smart card readers: " + (s == null ? e.getMessage() : s));
         } catch (Exception e) {
             e.printStackTrace();
             fail("Unknown error: " + e.getMessage());
         }
+    }
+
+    private static String printableCIN(byte[] cin) {
+        return String.format("%s-%s", HexUtils.bin2hex(Arrays.copyOfRange(cin, 0, 3)), HexUtils.bin2hex(Arrays.copyOfRange(cin, 3, 7)));
     }
 
     private static List<FidesmoApp> queryApps(FidesmoApiClient client, List<byte[]> apps, boolean verbose) throws IOException {
