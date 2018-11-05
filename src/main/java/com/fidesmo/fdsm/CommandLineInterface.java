@@ -163,12 +163,29 @@ abstract class CommandLineInterface {
         return args;
     }
 
+    public static boolean requiresCard() {
+        String[] commands = new String[]{
+                OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_DELIVER, OPT_CARD_APPS, OPT_CARD_INFO, OPT_SECURE_APDU
+        };
+        return Arrays.stream(commands).anyMatch(a -> args.has(a));
+    }
+
+    public static boolean requiresAuthentication() {
+        String[] commands = new String[]{
+                OPT_UPLOAD, OPT_DELETE_APPLET, OPT_FLUSH_APPLETS, OPT_CLEANUP, OPT_LIST_APPLETS, OPT_LIST_RECIPES
+        };
+        return Arrays.stream(commands).anyMatch(a -> args.has(a));
+    }
+
     static void fail(String message) {
         System.err.println();
         System.err.println(message);
         System.exit(1);
     }
 
+    static void success() {
+        System.exit(0);
+    }
     static void success(String message) {
         System.out.println(message);
         System.exit(0);

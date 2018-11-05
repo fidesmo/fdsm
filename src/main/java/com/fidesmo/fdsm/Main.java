@@ -60,12 +60,13 @@ public class Main extends CommandLineInterface {
                         appids.add(HexUtils.hex2bin(appid.asText()));
                     }
                     printApps(queryApps(client, appids, verbose), System.out, verbose);
+                    success();
                 } else {
-                    System.out.println("No apps in the appstore!");
+                    success("No apps in the appstore!");
                 }
             }
 
-            if (args.has(OPT_UPLOAD) || args.has(OPT_DELETE_APPLET) || args.has(OPT_FLUSH_APPLETS) || args.has(OPT_CLEANUP) || args.has(OPT_LIST_APPLETS) || args.has(OPT_LIST_RECIPES)) {
+            if (requiresAuthentication()) {
                 AuthenticatedFidesmoApiClient client = getAuthenticatedClient();
 
                 // Delete a specific applet
@@ -161,7 +162,7 @@ public class Main extends CommandLineInterface {
             }
 
             // Following requires card access
-            if (args.has(OPT_INSTALL) || args.has(OPT_UNINSTALL) || args.has(OPT_STORE_DATA) || args.has(OPT_DELIVER) || args.has(OPT_CARD_APPS) || args.has(OPT_CARD_INFO) || args.has(OPT_SECURE_APDU)) {
+            if (requiresCard()) {
                 // Locate a Fidesmo card
                 CardTerminal terminal = TerminalManager.getByAID(Collections.singletonList(FidesmoCard.FIDESMO_APP_AID.getBytes()));
                 if (apduTrace) {
@@ -171,6 +172,7 @@ public class Main extends CommandLineInterface {
                 fidesmoCard = FidesmoCard.getInstance(card.getBasicChannel());
                 System.out.println("Using card in " + terminal.getName());
 
+                // Can be used always
                 if (args.has(OPT_CARD_INFO)) {
                     System.out.format("CIN: %s batch: %s UID: %s%n",
                             printableCIN(fidesmoCard.getCIN()),
@@ -179,7 +181,9 @@ public class Main extends CommandLineInterface {
                     // For platforms that are not yet supported by fdsm
                     String platform = FidesmoCard.ChipPlatform.valueOf(fidesmoCard.platformType).orElseThrow(() -> new NotSupportedException("Chip platform not supported")).toString();
                     System.out.format("OS type: %s (platfrom v%d)%n", platform, fidesmoCard.platformVersion);
-                } else if (args.has(OPT_CARD_APPS)) {
+                }
+
+                if (args.has(OPT_CARD_APPS)) {
                     FidesmoApiClient client = getClient();
                     List<byte[]> apps = fidesmoCard.listApps();
                     if (apps.size() > 0) {
@@ -245,6 +249,7 @@ public class Main extends CommandLineInterface {
                         fidesmoCard.deliverRecipe(client, formHandler, recipe);
                     }
 
+                    // Can be chained
                     if (args.has(OPT_STORE_DATA)) {
                         List<byte[]> blobs = new ArrayList<>();
                         for (Object s : args.valuesOf(OPT_STORE_DATA)) {
@@ -255,6 +260,7 @@ public class Main extends CommandLineInterface {
                         fidesmoCard.deliverRecipe(client, formHandler, recipe);
                     }
 
+                    // Can be chained
                     if (args.has(OPT_SECURE_APDU)) {
                         List<byte[]> apdus = new ArrayList<>();
                         for (Object s : args.valuesOf(OPT_SECURE_APDU)) {
