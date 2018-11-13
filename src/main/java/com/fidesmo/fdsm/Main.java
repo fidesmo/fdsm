@@ -210,7 +210,7 @@ public class Main extends CommandLineInterface {
                     }
                     ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, formHandler);
                     cardSession.deliver(appId, service);
-                } else {
+                } else if (requiresAuthentication()) { // XXX
                     AuthenticatedFidesmoApiClient client = getAuthenticatedClient();
                     FormHandler formHandler = getCommandLineFormHandler();
 
