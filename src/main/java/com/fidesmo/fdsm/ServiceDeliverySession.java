@@ -27,7 +27,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import javax.crypto.*;
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.OAEPParameterSpec;
 import javax.crypto.spec.PSource;
@@ -35,7 +36,9 @@ import javax.smartcardio.CardException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.security.*;
+import java.security.GeneralSecurityException;
+import java.security.Key;
+import java.security.PublicKey;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.MGF1ParameterSpec;
@@ -62,10 +65,15 @@ public class ServiceDeliverySession {
         // Query service parameters
         JsonNode service = client.rpc(client.getURI(FidesmoApiClient.SERVICE_URL, appId, serviceId), null);
 
+        // We do not support paid services
+        if (service.has("price")) {
+            throw new NotSupportedException("Services requiring payment are not supported by fdsm. Please use the Android app!");
+        }
+
         JsonNode description = service.get("description");
-        // We don't do BankID
+        // Nod do we do BankID
         if (description.has("bankIdRequired") && description.get("bankIdRequired").asBoolean()) {
-            //throw new NotSupportedException("fdsm does not support BankID");
+            throw new NotSupportedException("Services requiring BankID are not supported by fdsm. Please use the Android app!");
         }
 
         // Construct deliveryrequest
