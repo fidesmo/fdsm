@@ -6,7 +6,7 @@
 
     <groupId>com.fidesmo</groupId>
     <artifactId>fdsm</artifactId>
-    <version>18.11.01-SNAPSHOT</version>
+    <version>18.11.16</version>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.version.windows>18.11.01.0</project.version.windows>
