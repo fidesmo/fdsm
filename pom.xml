@@ -279,6 +279,8 @@
                                 <excludes>
                                     <exclude>org.bouncycastle:*</exclude>
                                     <exclude>com.googlecode.json-simple:*</exclude>
+                                    <exclude>junit:junit:*</exclude>
+                                    <exclude>org.hamcrest:hamcrest-core:*</exclude>
                                 </excludes>
                             </artifactSet>
                             <filters>
