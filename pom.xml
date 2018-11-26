@@ -6,10 +6,10 @@
 
     <groupId>com.fidesmo</groupId>
     <artifactId>fdsm</artifactId>
-    <version>18.10.01</version>
+    <version>18.11.16</version>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.version.windows>18.10.01.0</project.version.windows>
+        <project.version.windows>18.11.01.0</project.version.windows>
     </properties>
 
     <!-- Necessary metadata for Maven Central -->
@@ -92,7 +92,7 @@
         <dependency>
             <groupId>com.payneteasy</groupId>
             <artifactId>ber-tlv</artifactId>
-            <version>1.0-8</version>
+            <version>1.0-9</version>
         </dependency>
     </dependencies>
 
@@ -279,6 +279,8 @@
                                 <excludes>
                                     <exclude>org.bouncycastle:*</exclude>
                                     <exclude>com.googlecode.json-simple:*</exclude>
+                                    <exclude>junit:junit:*</exclude>
+                                    <exclude>org.hamcrest:hamcrest-core:*</exclude>
                                 </excludes>
                             </artifactSet>
                             <filters>

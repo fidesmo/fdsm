@@ -34,6 +34,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -138,8 +139,9 @@ public class FidesmoApiClient {
         CloseableHttpResponse response = http.execute(request, context);
         int responsecode = response.getStatusLine().getStatusCode();
         if (responsecode < 200 || responsecode > 299) {
+            String message = response.getStatusLine() + "\n" + IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
             response.close();
-            throw new HttpResponseException(responsecode, response.getStatusLine() + "\n" + IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8));
+            throw new HttpResponseException(responsecode, message);
         }
         return response;
     }
@@ -152,7 +154,7 @@ public class FidesmoApiClient {
         HttpRequestBase req;
         if (request != null) {
             HttpPost post = new HttpPost(uri);
-            post.setEntity(new StringEntity(request.toString()));
+            post.setEntity(new ByteArrayEntity(mapper.writeValueAsBytes(request)));
             req = post;
             if (restdebug) {
                 System.out.println("POST: " + uri);

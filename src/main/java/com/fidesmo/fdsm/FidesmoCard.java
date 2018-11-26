@@ -40,11 +40,26 @@ import java.util.*;
 // Represents a live, personalized Fidesmo card
 public class FidesmoCard {
     public enum ChipPlatform {
-        JCOP242R1,
-        JCOP242R2,
-        JCOP3EMV,
-        JCOP3SECIDCS,
-        ST31
+
+        JCOP242R1(1),
+        JCOP242R2(2),
+        JCOP3EMV(3),
+        JCOP3SECIDCS(4),
+        ST31(5);
+
+        private int v;
+
+        ChipPlatform(int v) {
+            this.v = v;
+        }
+
+        public static Optional<ChipPlatform> valueOf(int v) {
+            for (ChipPlatform t : values()) {
+                if (t.v == v)
+                    return Optional.of(t);
+            }
+            return Optional.empty();
+        }
     }
 
     static HashMap<byte[], ChipPlatform> CPLC_PLATFORMS = new HashMap<>();
@@ -100,11 +115,13 @@ public class FidesmoCard {
     public static final AID FIDESMO_BATCH_AID = AID.fromString("A000000617020002000002");
 
     private final CardChannel channel;
+    private byte[] uid = null;
     private byte[] iin = null;
     private byte[] cin = null;
     private byte[] cplc = null;
     private byte[] batchId = null;
 
+    // Default values
     int platformVersion = 1;
     int platformType = 1;
     int mifareType = 2;
@@ -120,12 +137,12 @@ public class FidesmoCard {
         return card;
     }
 
-    public boolean deliverRecipe(AuthenticatedFidesmoApiClient client, String recipe) throws CardException, IOException {
-        return deliverRecipes(client, Collections.singletonList(recipe));
+    public boolean deliverRecipe(AuthenticatedFidesmoApiClient client, FormHandler formHandler, String recipe) throws CardException, IOException {
+        return deliverRecipes(client, formHandler, Collections.singletonList(recipe));
     }
 
-    public boolean deliverRecipes(AuthenticatedFidesmoApiClient client, List<String> recipes) throws CardException, IOException {
-        ServiceDeliverySession session = ServiceDeliverySession.getInstance(this, client);
+    public boolean deliverRecipes(AuthenticatedFidesmoApiClient client, FormHandler formHandler, List<String> recipes) throws CardException, IOException {
+        ServiceDeliverySession session = ServiceDeliverySession.getInstance(this, client, formHandler);
 
         for (String recipe : recipes) {
             String uuid = UUID.randomUUID().toString();
@@ -174,12 +191,26 @@ public class FidesmoCard {
         return detectPlatform(cplc);
     }
 
+    public Optional<byte[]> getUID() {
+        return Optional.ofNullable(uid);
+    }
+
     public boolean detect() throws CardException {
         // Select ISD
         CommandAPDU selectISD = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, 0x00);
         ResponseAPDU response = channel.transmit(selectISD);
         if (response.getSW() != 0x9000)
             return false;
+
+        // See if we get the UID from ACS(-compatible) readers
+        // NOTE: to make sure we get a sane response if the reader does not support
+        // the command, ISD MUST be selected before this command
+        CommandAPDU getUID = new CommandAPDU(HexUtils.hex2bin("FFCA000000"));
+        response = channel.transmit(getUID);
+        // Sensibility check: UID size
+        if (response.getSW() == 0x9000 && response.getData().length <= 7) {
+            uid = response.getData();
+        }
         // Get CPLC
         CommandAPDU getCPLC = new CommandAPDU(0x80, 0xCA, 0x9F, 0x7F, 0x00);
         response = channel.transmit(getCPLC);
