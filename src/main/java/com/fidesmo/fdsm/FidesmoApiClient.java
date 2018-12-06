@@ -36,7 +36,6 @@ import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.ContentType;
-import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 
@@ -55,7 +54,8 @@ import java.util.Map;
 public class FidesmoApiClient {
     public static final String APIv2 = "https://api.fidesmo.com/v2/";
 
-    public static final String APPS_URL = "apps";
+    // This looks as nice here as it looks in the API
+    public static final String APPS_URL = "apps" + (System.getenv().getOrDefault("FIDESMO_DEVELOPER", "false").equalsIgnoreCase("true") ? "?development=true" : "");
     public static final String APP_INFO_URL = "apps/%s";
     public static final String APP_SERVICES_URL = "apps/%s/services";
 

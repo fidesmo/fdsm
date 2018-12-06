@@ -43,7 +43,6 @@ public class CommandLineFormHandler implements FormHandler {
 
         Map<String, Field> results = new HashMap<>();
 
-        System.out.println("Press Ctrl-D to cancel at any time");
         Thread cleanup = new Thread(() -> {
             System.err.println("\nCtrl-C received, shutting down");
         });
@@ -71,12 +70,13 @@ public class CommandLineFormHandler implements FormHandler {
 
     protected Optional<String> askForField(Field f) {
         Console console = System.console();
+        System.out.println("Press Ctrl-D to cancel at any time");
         Optional<String> input;
         switch (f.getType()) {
             case "checkbox":
                 System.out.println(f.getLabel() + ":");
                 do {
-                    System.out.println("Must be \"y\" or \"n\", press Ctrl-D to cancel");
+                    System.out.println("Must be \"y\" or \"n\"");
                     input = Optional.ofNullable(console.readLine("> [y/n] "));
                 } while (input.isPresent() && !input.get().trim().toLowerCase().matches("^(y|n)$"));
                 return input.map(i -> i.trim().toLowerCase().equals("y") ? "true" : "false");
@@ -86,7 +86,7 @@ public class CommandLineFormHandler implements FormHandler {
             case "paymentcard":
                 System.out.println(f.getLabel() + ":");
                 do {
-                    System.out.println("Format must be \"PAN;MM/YY;CVV\", press Ctrl-D to cancel");
+                    System.out.println("Format must be \"PAN;MM/YY;CVV\"");
                     input = Optional.ofNullable(console.readLine("> "));
                 } while (input.isPresent() && !input.get().trim().matches("^[0-9]{16};[0-1][0-9]/[0-9]{2};[0-9]{3}$"));
                 return input;
@@ -94,7 +94,7 @@ public class CommandLineFormHandler implements FormHandler {
                 System.out.println(f.getLabel() + ":");
                 // Validate
                 do {
-                    System.out.println("Format must be \"YYYY-MM-DD\", press Ctrl-D to cancel");
+                    System.out.println("Format must be \"YYYY-MM-DD\"");
                     input = Optional.ofNullable(console.readLine("> [YYYY-MM-DD] "));
                 } while (input.isPresent() && !input.get().trim().matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$"));
                 return input;
