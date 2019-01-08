@@ -30,6 +30,7 @@ import org.apache.http.client.HttpResponseException;
 import pro.javacard.AID;
 import pro.javacard.CAPFile;
 
+import javax.crypto.Cipher;
 import javax.smartcardio.Card;
 import javax.smartcardio.CardException;
 import javax.smartcardio.CardTerminal;
@@ -49,6 +50,12 @@ public class Main extends CommandLineInterface {
         try {
             // Inspect arguments
             parseArguments(argv);
+
+            // Check if using payment card encryption would fail (Java 1.8 < u151)
+            if (Cipher.getMaxAllowedKeyLength("AES") == 128) {
+                System.err.println("WARNING: Unlimited crypto policy is NOT installed and using too old Java version!");
+                System.err.println("Please update to latest Java!");
+            }
 
             if (args.has(OPT_STORE_APPS)) {
                 FidesmoApiClient client = getClient();
@@ -163,8 +170,22 @@ public class Main extends CommandLineInterface {
 
             // Following requires card access
             if (requiresCard()) {
-                // Locate a Fidesmo card
-                CardTerminal terminal = TerminalManager.getByAID(Collections.singletonList(FidesmoCard.FIDESMO_APP_AID.getBytes()));
+                // Locate a Fidesmo card, unless asked for a specific terminal
+                CardTerminal terminal = null;
+                if (args.has(OPT_READER)) {
+                    String reader = args.valueOf(OPT_READER).toString();
+                    for (CardTerminal t : TerminalManager.getTerminalFactory(null).terminals().list()) {
+                        if (t.getName().toLowerCase().contains(reader)) {
+                            terminal = t;
+                        }
+                    }
+                    if (terminal == null) {
+                        fail(String.format("Reader \"%s\" not found", reader));
+                    }
+                } else {
+                    terminal = TerminalManager.getByAID(Collections.singletonList(FidesmoCard.FIDESMO_APP_AID.getBytes()));
+                }
+
                 if (apduTrace) {
                     terminal = LoggingCardTerminal.getInstance(terminal);
                 }
@@ -191,11 +212,17 @@ public class Main extends CommandLineInterface {
                     } else {
                         success("No applications");
                     }
-                } else if (args.has(OPT_DELIVER)) {
+                } else if (args.has(OPT_DELIVER) || args.has(OPT_RUN)) {
+                    String service;
+                    if (args.has(OPT_DELIVER)) {
+                        System.err.println("--deliver is deprecated for --run. Please update your scripts");
+                        service = args.valueOf(OPT_DELIVER).toString();
+                    } else {
+                        service = args.valueOf(OPT_RUN).toString();
+                    }
                     FidesmoApiClient client = getClient();
                     FormHandler formHandler = getCommandLineFormHandler();
 
-                    String service = args.valueOf(OPT_DELIVER).toString();
                     if (service.contains("/")) {
                         String[] bits = service.split("/");
                         if (bits.length == 2 && bits[0].length() == 8) {
@@ -285,6 +312,8 @@ public class Main extends CommandLineInterface {
         } catch (GeneralSecurityException | Smartcardio.EstablishContextException e) {
             String s = TerminalManager.getExceptionMessage(e);
             fail("No smart card readers: " + (s == null ? e.getMessage() : s));
+        } catch (IllegalArgumentException e) {
+            fail("Illegal argument: " + e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
             fail("Unknown error: " + e.getMessage());
