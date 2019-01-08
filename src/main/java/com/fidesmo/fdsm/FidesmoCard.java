@@ -214,7 +214,7 @@ public class FidesmoCard {
         // Get CPLC
         CommandAPDU getCPLC = new CommandAPDU(0x80, 0xCA, 0x9F, 0x7F, 0x00);
         response = channel.transmit(getCPLC);
-        if (response.getSW() != 0x9000)
+        if (response.getSW() != 0x9000 || response.getData().length == 0)
             return false;
         byte[] data = response.getData();
         // Remove tag, if present

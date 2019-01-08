@@ -35,6 +35,7 @@ abstract class CommandLineInterface {
     final static String OPT_APP_KEY = "app-key";
     final static String OPT_APPLET = "applet";
     final static String OPT_DELIVER = "deliver";
+    final static String OPT_RUN = "run";
     final static String OPT_UPLOAD = "upload";
     final static String OPT_LIST_APPLETS = "list-applets";
     final static String OPT_DELETE_APPLET = "delete-applet";
@@ -52,17 +53,19 @@ abstract class CommandLineInterface {
     final static String OPT_SECURE_APDU = "secure-apdu";
     final static String OPT_FIELDS = "fields";
 
+    final static String OPT_READER = "reader";
     final static String OPT_TRACE_API = "trace-api";
     final static String OPT_TRACE_APDU = "trace-apdu";
     final static String OPT_VERBOSE = "verbose";
 
     protected static String appId = null;
     protected static String appKey = null;
+
     protected static boolean apduTrace = false;
     protected static boolean apiTrace = false;
+    protected static boolean verbose = false;
 
     protected static OptionSet args = null;
-    protected static boolean verbose = false;
 
     protected static void inspectEnvironment(OptionSet args) {
         // Get the app ID from the environment, if present
@@ -108,8 +111,9 @@ abstract class CommandLineInterface {
         parser.accepts(OPT_STORE_DATA, "STORE DATA to applet").withRequiredArg().describedAs("HEX");
         parser.accepts(OPT_APPLET, "Specify applet").requiredIf(OPT_STORE_DATA).withRequiredArg().describedAs("AID");
 
-        parser.accepts(OPT_DELIVER, "Deliver service").withRequiredArg().describedAs("appId/serviceId");
-        parser.accepts(OPT_FIELDS, "Service fields").withRequiredArg().describedAs("fieldId=value,...");
+        parser.accepts(OPT_DELIVER, "Deliver service (deprecated for --run)").withRequiredArg().describedAs("appId/serviceId");
+        parser.accepts(OPT_RUN, "Run service").withRequiredArg().describedAs("appId/serviceId");
+        parser.accepts(OPT_FIELDS, "Service parameters").withRequiredArg().describedAs("field=value,...");
 
         parser.accepts(OPT_UPLOAD, "Upload CAP to Fidesmo").withOptionalArg().ofType(File.class).describedAs("CAP file");
         parser.accepts(OPT_LIST_APPLETS, "List applets at Fidesmo");
@@ -128,6 +132,7 @@ abstract class CommandLineInterface {
         parser.accepts(OPT_CREATE, "Applet instance AID").withRequiredArg().describedAs("AID");
         parser.accepts(OPT_UNINSTALL, "Uninstall CAP from card").withRequiredArg().ofType(File.class).describedAs("CAP file");
 
+        parser.accepts(OPT_READER, "Specify reader to use").withRequiredArg().describedAs("reader");
         parser.accepts(OPT_TRACE_API, "Trace Fidesmo API");
         parser.accepts(OPT_TRACE_APDU, "Trace APDU-s");
         parser.accepts(OPT_VERBOSE, "Be verbose");
@@ -186,6 +191,7 @@ abstract class CommandLineInterface {
     static void success() {
         System.exit(0);
     }
+
     static void success(String message) {
         System.out.println(message);
         System.exit(0);
