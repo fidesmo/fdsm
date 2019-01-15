@@ -238,7 +238,11 @@ public class Main extends CommandLineInterface {
                         fail("Need Application ID");
                     }
                     ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, formHandler);
-                    cardSession.deliver(appId, service);
+                    if (!cardSession.deliver(appId, service, System.out)) {
+                        fail("Failed to run service");
+                    } else {
+                        success(); // Explicitly quit to signal successful service. Which implies only one service per invocation
+                    }
                 } else if (requiresAuthentication()) { // XXX
                     AuthenticatedFidesmoApiClient client = getAuthenticatedClient();
                     FormHandler formHandler = getCommandLineFormHandler();
