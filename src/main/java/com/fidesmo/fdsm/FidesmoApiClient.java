@@ -72,6 +72,8 @@ public class FidesmoApiClient {
     public static final String CONNECTOR_URL = "connector/json";
     public static final String CONNECTOR_ERROR_URL = "connector/error";
 
+    public static final String DEVICES_URL = "devices/%s?batchId=%s";
+
 
     private boolean restdebug = false; // RPC debug
     private final CloseableHttpClient http;

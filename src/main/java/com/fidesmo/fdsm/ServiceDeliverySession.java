@@ -36,6 +36,7 @@ import javax.smartcardio.CardException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.Key;
@@ -64,6 +65,8 @@ public class ServiceDeliverySession {
 
 
     public boolean deliver(String appId, String serviceId, PrintStream debug) throws CardException, IOException {
+        // Address #4
+        client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(card.getCIN()), new BigInteger(1, card.getBatchId()).toString()));
         // Query service parameters
         JsonNode service = client.rpc(client.getURI(FidesmoApiClient.SERVICE_URL, appId, serviceId), null);
 
