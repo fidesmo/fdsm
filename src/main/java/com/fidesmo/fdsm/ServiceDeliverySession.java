@@ -35,6 +35,7 @@ import javax.crypto.spec.PSource;
 import javax.smartcardio.CardException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.Key;
@@ -61,7 +62,8 @@ public class ServiceDeliverySession {
         return new ServiceDeliverySession(card, client, formHandler);
     }
 
-    public boolean deliver(String appId, String serviceId) throws CardException, IOException {
+
+    public boolean deliver(String appId, String serviceId, PrintStream debug) throws CardException, IOException {
         // Query service parameters
         JsonNode service = client.rpc(client.getURI(FidesmoApiClient.SERVICE_URL, appId, serviceId), null);
 
@@ -119,8 +121,8 @@ public class ServiceDeliverySession {
 
         JsonNode delivery = client.rpc(client.getURI(FidesmoApiClient.SERVICE_DELIVER_URL), deliveryrequest);
         String sessionId = delivery.get("sessionId").asText();
-        System.out.println("Delivering: " + FidesmoApiClient.lamei18n(description.get("title")));
-        System.out.println("Session ID: " + sessionId);
+        debug.println("Delivering: " + FidesmoApiClient.lamei18n(description.get("title")));
+        debug.println("Session ID: " + sessionId);
 
         ObjectNode fetchrequest = emptyFetchRequest(sessionId);
         // Now loop getting the operations
@@ -130,10 +132,10 @@ public class ServiceDeliverySession {
             // Check if done
             if (fetch.get("completed").asBoolean()) {
                 if (fetch.get("status").get("success").asBoolean()) {
-                    System.out.println("Success: " + FidesmoApiClient.lamei18n(fetch.get("status").get("message")));
+                    debug.println("Success: " + FidesmoApiClient.lamei18n(fetch.get("status").get("message")));
                     return true;
                 } else {
-                    System.out.println("Failure: " + FidesmoApiClient.lamei18n(fetch.get("status").get("message")));
+                    debug.println("Failure: " + FidesmoApiClient.lamei18n(fetch.get("status").get("message")));
                     return false;
                 }
             }
@@ -154,6 +156,14 @@ public class ServiceDeliverySession {
                     throw new NotSupportedException("Unsupported operation: " + fetch);
             }
         }
+    }
+
+    /**
+     * Deprecated in favor of {deliver{@link #deliver(String, String, PrintStream)}}
+     */
+    @Deprecated
+    public boolean deliver(String appId, String serviceId) throws CardException, IOException {
+        return deliver(appId, serviceId, System.out);
     }
 
     protected ObjectNode processTransmitOperation(JsonNode operationId, String sessionId) throws CardException, IOException {

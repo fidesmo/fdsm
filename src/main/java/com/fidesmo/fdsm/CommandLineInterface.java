@@ -170,14 +170,14 @@ abstract class CommandLineInterface {
 
     public static boolean requiresCard() {
         String[] commands = new String[]{
-                OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_DELIVER, OPT_CARD_APPS, OPT_CARD_INFO, OPT_SECURE_APDU
+                OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_SECURE_APDU, OPT_DELIVER, OPT_RUN, OPT_CARD_APPS, OPT_CARD_INFO
         };
         return Arrays.stream(commands).anyMatch(a -> args.has(a));
     }
 
     public static boolean requiresAuthentication() {
         String[] commands = new String[]{
-                OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_SECURE_APDU, OPT_DELIVER, OPT_UPLOAD, OPT_DELETE_APPLET, OPT_FLUSH_APPLETS, OPT_CLEANUP, OPT_LIST_APPLETS, OPT_LIST_RECIPES
+                OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_SECURE_APDU, OPT_UPLOAD, OPT_DELETE_APPLET, OPT_FLUSH_APPLETS, OPT_CLEANUP, OPT_LIST_APPLETS, OPT_LIST_RECIPES
         };
         return Arrays.stream(commands).anyMatch(a -> args.has(a));
     }
