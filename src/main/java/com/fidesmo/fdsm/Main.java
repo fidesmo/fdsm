@@ -195,10 +195,12 @@ public class Main extends CommandLineInterface {
 
                 // Can be used always
                 if (args.has(OPT_CARD_INFO)) {
-                    System.out.format("CIN: %s batch: %s UID: %s%n",
+                    boolean showIIN = System.getenv().getOrDefault("FIDESMO_DEVELOPER", "false").equalsIgnoreCase("true") || args.has(OPT_VERBOSE);
+                    System.out.format("CIN: %s BATCH: %s UID: %s%s%n",
                             printableCIN(fidesmoCard.getCIN()),
                             HexUtils.bin2hex(fidesmoCard.getBatchId()),
-                            fidesmoCard.getUID().map(i -> HexUtils.bin2hex(i)).orElse("N/A"));
+                            fidesmoCard.getUID().map(i -> HexUtils.bin2hex(i)).orElse("N/A"),
+                            showIIN ? String.format(" IIN: %s", HexUtils.bin2hex(fidesmoCard.getIIN())) : "");
                     // For platforms that are not yet supported by fdsm
                     String platform = FidesmoCard.ChipPlatform.valueOf(fidesmoCard.platformType).orElseThrow(() -> new NotSupportedException("Chip platform not supported")).toString();
                     System.out.format("OS type: %s (platfrom v%d)%n", platform, fidesmoCard.platformVersion);
