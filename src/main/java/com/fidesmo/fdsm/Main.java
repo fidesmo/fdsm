@@ -175,7 +175,7 @@ public class Main extends CommandLineInterface {
                 if (args.has(OPT_READER)) {
                     String reader = args.valueOf(OPT_READER).toString();
                     for (CardTerminal t : TerminalManager.getTerminalFactory(null).terminals().list()) {
-                        if (t.getName().toLowerCase().contains(reader)) {
+                        if (t.getName().toLowerCase().contains(reader.toLowerCase())) {
                             terminal = t;
                         }
                     }
