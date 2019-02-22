@@ -160,7 +160,7 @@ public class FidesmoCard {
             Runtime.getRuntime().addShutdownHook(cleanup);
 
             try {
-                if (!session.deliver(client.getAppId(), uuid)) {
+                if (!session.deliver(client.getAppId(), uuid, System.out)) {
                     return false;
                 }
             } finally {

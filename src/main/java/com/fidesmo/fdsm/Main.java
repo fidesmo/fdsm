@@ -175,10 +175,7 @@ public class Main extends CommandLineInterface {
                     }
                 }
 
-                if (args.has(OPT_UPLOAD) && args.valueOf(OPT_UPLOAD) != null) {
-                    CAPFile cap = CAPFile.fromStream(new FileInputStream((File) args.valueOf(OPT_UPLOAD)));
-                    client.upload(cap);
-                } else if (args.has(OPT_FLUSH_APPLETS)) {
+                if (args.has(OPT_FLUSH_APPLETS)) {
                     JsonNode applets = client.rpc(client.getURI(FidesmoApiClient.ELF_URL));
                     for (JsonNode e : applets) {
                         client.delete(client.getURI(FidesmoApiClient.ELF_ID_URL, e.get("id").asText()));
@@ -292,9 +289,8 @@ public class Main extends CommandLineInterface {
                             }
                         }
                         String recipe = RecipeGenerator.makeInstallRecipe(cap.getPackageAID(), applet, instance, params);
-                        if (args.has(OPT_UPLOAD)) {
-                            client.upload(cap);
-                        }
+                        // TODO: check if can/should be deleted after use
+                        client.upload(cap);
                         fidesmoCard.deliverRecipe(client, formHandler, recipe);
                     } else if (args.has(OPT_UNINSTALL)) {
                         CAPFile cap = CAPFile.fromStream(new FileInputStream((File) args.valueOf(OPT_UNINSTALL)));

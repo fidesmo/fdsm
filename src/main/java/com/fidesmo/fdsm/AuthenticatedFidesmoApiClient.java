@@ -62,7 +62,7 @@ public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
 
 
     // Upload a CAP file
-    public void upload(CAPFile cap) throws IOException {
+    public boolean upload(CAPFile cap) throws IOException {
         if (cap.guessJavaCardVersion().equals("3.0.5")) {
             throw new IOException("Fidesmo supports JavaCard up to version 3.0.4");
         }
@@ -88,7 +88,9 @@ public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         cap.store(bos);
         post.setEntity(new ByteArrayEntity(bos.toByteArray()));
-        transmit(post);
+
+        // Return true if CAP was freshly created
+        return transmit(post).getStatusLine().getStatusCode() == 201;
     }
 
 

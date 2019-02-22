@@ -36,7 +36,6 @@ abstract class CommandLineInterface {
     final static String OPT_APPLET = "applet";
     final static String OPT_DELIVER = "deliver";
     final static String OPT_RUN = "run";
-    final static String OPT_UPLOAD = "upload";
     final static String OPT_LIST_APPLETS = "list-applets";
     final static String OPT_DELETE_APPLET = "delete-applet";
     final static String OPT_CARD_APPS = "card-apps";
@@ -116,7 +115,6 @@ abstract class CommandLineInterface {
         parser.accepts(OPT_RUN, "Run service").withRequiredArg().describedAs("appId/serviceId");
         parser.accepts(OPT_FIELDS, "Service parameters").withRequiredArg().describedAs("field=value,...");
 
-        parser.accepts(OPT_UPLOAD, "Upload CAP to Fidesmo").withOptionalArg().ofType(File.class).describedAs("CAP file");
         parser.accepts(OPT_LIST_APPLETS, "List applets at Fidesmo");
         parser.accepts(OPT_DELETE_APPLET, "Deletes applet from Fidesmo").withRequiredArg().describedAs("ID");
         parser.accepts(OPT_CARD_APPS, "List apps on the card");
@@ -179,7 +177,7 @@ abstract class CommandLineInterface {
 
     public static boolean requiresAuthentication() {
         String[] commands = new String[]{
-                OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_SECURE_APDU, OPT_UPLOAD, OPT_DELETE_APPLET, OPT_FLUSH_APPLETS, OPT_CLEANUP, OPT_LIST_APPLETS, OPT_LIST_RECIPES
+                OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_SECURE_APDU, OPT_DELETE_APPLET, OPT_FLUSH_APPLETS, OPT_CLEANUP, OPT_LIST_APPLETS, OPT_LIST_RECIPES
         };
         return Arrays.stream(commands).anyMatch(a -> args.has(a));
     }
