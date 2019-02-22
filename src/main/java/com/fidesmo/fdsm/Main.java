@@ -40,6 +40,9 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -86,12 +89,20 @@ public class Main extends CommandLineInterface {
                 // Delete a specific applet
                 if (args.has(OPT_DELETE_APPLET)) {
                     String id = args.valueOf(OPT_DELETE_APPLET).toString();
+                    // DWIM: take ID or CAP file as argument
+                    if (!id.toLowerCase().matches("[a-f0-9]{64}")) {
+                        Path candidate = Paths.get(id);
+                        if (Files.exists(candidate)) {
+                            CAPFile tmp = CAPFile.fromBytes(Files.readAllBytes(candidate));
+                            id = HexUtils.bin2hex(tmp.getLoadFileDataHash("SHA-256", false));
+                        } else {
+                            fail("Not a SHA-256: " + id);
+                        }
+                    }
                     try {
-                        UUID uuid = UUID.fromString(id);
-                        client.delete(client.getURI(FidesmoApiClient.ELF_ID_URL, uuid.toString()));
+                        // XXX: case-sensitive
+                        client.delete(client.getURI(FidesmoApiClient.ELF_ID_URL, id.toLowerCase()));
                         System.out.println(id + " deleted.");
-                    } catch (IllegalArgumentException e) {
-                        fail("Not a valid UUID: " + id);
                     } catch (HttpResponseException e) {
                         if (e.getStatusCode() == 404) {
                             fail("Not found: " + id);
