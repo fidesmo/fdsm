@@ -63,7 +63,6 @@ public class ServiceDeliverySession {
         return new ServiceDeliverySession(card, client, formHandler);
     }
 
-
     public boolean deliver(String appId, String serviceId, PrintStream debug) throws CardException, IOException {
         // Address #4
         client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(card.getCIN()), new BigInteger(1, card.getBatchId()).toString()));
@@ -199,6 +198,7 @@ public class ServiceDeliverySession {
             }
         }
 
+        // Send an empty fetch request when APDU-s are done
         return emptyFetchRequest(sessionId);
     }
 
@@ -279,6 +279,8 @@ public class ServiceDeliverySession {
                 values.put(v.getKey(), value);
             }
             operationResult.set("fields", values);
+            operationResult.put("statusCode", 200);
+
             if (encrypted) {
                 operationResult.put("ephemeralKey", HexUtils.bin2hex(encryptSessionKey(spkey, sessionKey)));
             }
@@ -288,6 +290,7 @@ public class ServiceDeliverySession {
 
         ObjectNode fetchRequest = emptyFetchRequest(sessionId);
         fetchRequest.set("operationResult", operationResult);
+
         return fetchRequest;
     }
 
@@ -315,7 +318,6 @@ public class ServiceDeliverySession {
         return fetchRequest;
     }
 
-
     private byte[] encrypt(String value, Key key) throws GeneralSecurityException {
         Cipher c = Cipher.getInstance("AES/CBC/PKCS5Padding");
         c.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(new byte[16]));
@@ -336,10 +338,9 @@ public class ServiceDeliverySession {
     }
 
     private ObjectNode emptyFetchRequest(String sessionId) {
-        ObjectNode operationResult = JsonNodeFactory.instance.objectNode();
-        operationResult.put("sessionId", sessionId);
-        operationResult.put("statusCode", sessionId);
-        return operationResult;
+        ObjectNode fetchRequest = JsonNodeFactory.instance.objectNode();
+        fetchRequest.put("sessionId", sessionId);
+        return fetchRequest;
     }
 
     private ObjectNode mapToJsonNode(Map<String, Field> map) {
