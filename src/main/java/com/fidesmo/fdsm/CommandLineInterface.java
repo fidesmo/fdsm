@@ -57,6 +57,7 @@ abstract class CommandLineInterface {
     final static String OPT_TRACE_API = "trace-api";
     final static String OPT_TRACE_APDU = "trace-apdu";
     final static String OPT_VERBOSE = "verbose";
+    final static String OPT_VERSION = "version";
 
     protected static String appId = null;
     protected static String appKey = null;
@@ -137,6 +138,7 @@ abstract class CommandLineInterface {
         parser.accepts(OPT_TRACE_APDU, "Trace APDU-s");
         parser.accepts(OPT_VERBOSE, "Be verbose");
 
+        parser.acceptsAll(Arrays.asList("V", OPT_VERSION), "Show version and check for updates");
 
         // Parse arguments
         try {

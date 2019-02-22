@@ -39,6 +39,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.security.GeneralSecurityException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -50,6 +51,12 @@ public class Main extends CommandLineInterface {
         try {
             // Inspect arguments
             parseArguments(argv);
+
+            // Check for version
+            if (args.has(OPT_VERSION)) {
+                System.out.println("# fdsm v" + FidesmoApiClient.getVersion());
+                checkVersions(getClient());
+            }
 
             // Check if using payment card encryption would fail (Java 1.8 < u151)
             if (Cipher.getMaxAllowedKeyLength("AES") == 128) {
@@ -195,7 +202,7 @@ public class Main extends CommandLineInterface {
 
                 // Can be used always
                 if (args.has(OPT_CARD_INFO)) {
-                    boolean showIIN = System.getenv().getOrDefault("FIDESMO_DEVELOPER", "false").equalsIgnoreCase("true") || args.has(OPT_VERBOSE);
+                    boolean showIIN = isDeveloperMode() || args.has(OPT_VERBOSE);
                     System.out.format("CIN: %s BATCH: %s UID: %s%s%n",
                             printableCIN(fidesmoCard.getCIN()),
                             HexUtils.bin2hex(fidesmoCard.getBatchId()),
@@ -223,6 +230,7 @@ public class Main extends CommandLineInterface {
                         service = args.valueOf(OPT_RUN).toString();
                     }
                     FidesmoApiClient client = getClient();
+                    checkVersions(client);
                     FormHandler formHandler = getCommandLineFormHandler();
 
                     if (service.contains("/")) {
@@ -245,6 +253,7 @@ public class Main extends CommandLineInterface {
                     }
                 } else if (requiresAuthentication()) { // XXX
                     AuthenticatedFidesmoApiClient client = getAuthenticatedClient();
+                    checkVersions(client); // Always check versions
                     FormHandler formHandler = getCommandLineFormHandler();
 
                     if (args.has(OPT_INSTALL)) {
@@ -326,6 +335,10 @@ public class Main extends CommandLineInterface {
         }
     }
 
+    static boolean isDeveloperMode() {
+        return System.getenv().getOrDefault("FIDESMO_DEVELOPER", "false").equalsIgnoreCase("true");
+    }
+
     private static String printableCIN(byte[] cin) {
         return String.format("%s-%s", HexUtils.bin2hex(Arrays.copyOfRange(cin, 0, 3)), HexUtils.bin2hex(Arrays.copyOfRange(cin, 3, 7)));
     }
@@ -382,6 +395,21 @@ public class Main extends CommandLineInterface {
             client.setTrace(true);
         }
         return client;
+    }
+
+    static void checkVersions(FidesmoApiClient client) {
+        try {
+            JsonNode v = client.rpc(new URI("https://api.fidesmo.com/fdsm-version"));
+            // Convert both to numbers
+            int latest = Integer.parseInt(v.get("tag_name").asText("00.00.00").substring(0, 8).replace(".", ""));
+            int current = Integer.parseInt(FidesmoApiClient.getVersion().substring(0, 8).replace(".", ""));
+            if (current < latest) {
+                System.out.println("Please download updated version from\n\n" + v.get("html_url").asText());
+            }
+        } catch (URISyntaxException | IOException e) {
+            // Do nothing.
+            System.err.println("Warning: could not check for updates!");
+        }
     }
 
     private static FormHandler getCommandLineFormHandler() {
