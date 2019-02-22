@@ -275,7 +275,7 @@ public class FidesmoCard {
         // Fidesmo RID
         final byte[] prefix = HexUtils.hex2bin("A00000061701");
         List<byte[]> apps = new LinkedList<>();
-        CommandAPDU select = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, prefix);
+        CommandAPDU select = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, prefix, 256);
         ResponseAPDU response;
         do {
             response = channel.transmit(select);
@@ -287,7 +287,7 @@ public class FidesmoCard {
                     apps.add(appID);
                 }
                 // Select next
-                select = new CommandAPDU(0x00, 0xA4, 0x04, 0x02, prefix);
+                select = new CommandAPDU(0x00, 0xA4, 0x04, 0x02, prefix, 256);
             }
         } while (response.getSW() == 0x9000);
         return apps;
