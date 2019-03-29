@@ -38,7 +38,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.math.BigInteger;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
@@ -50,6 +49,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class Main extends CommandLineInterface {
+    static final String FDSM_SP = "8e5cdaae";
     private static FidesmoCard fidesmoCard;
 
     public static void main(String[] argv) {
@@ -229,7 +229,7 @@ public class Main extends CommandLineInterface {
                     ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, formHandler);
                     if (args.has(OPT_TIMEOUT))
                         cardSession.setTimeout((Integer) args.valueOf(OPT_TIMEOUT));
-                    if (!cardSession.deliver("8e5cdaae", number)) {
+                    if (!cardSession.deliver(FDSM_SP, number)) {
                         fail("Failed to run service");
                     } else {
                         success();
