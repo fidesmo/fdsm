@@ -282,9 +282,9 @@ public class FidesmoCard {
         return true;
     }
 
-    // Remove the leading 0x00 if the format is not TLV
+    // Remove the trailing 0x00 if the format is not TLV
     private byte[] fixup(byte[] v) {
-        if (v[v.length - 1] == 0x00) {
+        if (v.length > 0 && v[v.length - 1] == 0x00) {
             try {
                 BerTlvParser parser = new BerTlvParser();
                 parser.parse(v);
