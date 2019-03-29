@@ -6,10 +6,10 @@
 
     <groupId>com.fidesmo</groupId>
     <artifactId>fdsm</artifactId>
-    <version>19.03.06</version>
+    <version>19.03.29</version>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.version.windows>19.3.6.0</project.version.windows>
+        <project.version.windows>19.3.29.0</project.version.windows>
     </properties>
 
     <!-- Necessary metadata for Maven Central -->
