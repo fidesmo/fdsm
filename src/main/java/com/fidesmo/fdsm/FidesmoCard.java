@@ -250,7 +250,7 @@ public class FidesmoCard {
         if (response.getSW() != 0x9000)
             return false;
         BerTlvParser parser = new BerTlvParser();
-        BerTlvs tlvs = parser.parse(response.getData());
+        BerTlvs tlvs = parser.parse(fixup(response.getData()));
         BerTlv batchIdTag = tlvs.find(new BerTag(0x42));
         if (batchIdTag != null) {
             batchId = batchIdTag.getBytesValue();
@@ -280,6 +280,20 @@ public class FidesmoCard {
             platformType = platformTypeValue.getInt();
         }
         return true;
+    }
+
+    // Remove the trailing 0x00 if the format is not TLV
+    private byte[] fixup(byte[] v) {
+        if (v.length > 0 && v[v.length - 1] == 0x00) {
+            try {
+                BerTlvParser parser = new BerTlvParser();
+                parser.parse(v);
+                return v;
+            } catch (ArrayIndexOutOfBoundsException e) {
+                return Arrays.copyOf(v, v.length - 1);
+            }
+        }
+        return v;
     }
 
     public List<byte[]> listApps() throws CardException {
