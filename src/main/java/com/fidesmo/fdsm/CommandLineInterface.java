@@ -59,6 +59,9 @@ abstract class CommandLineInterface {
     final static String OPT_VERBOSE = "verbose";
     final static String OPT_VERSION = "version";
 
+    final static String OPT_QA = "qa";
+    final static String OPT_TIMEOUT = "timeout";
+
     protected static String appId = null;
     protected static String appKey = null;
 
@@ -131,12 +134,15 @@ abstract class CommandLineInterface {
 
         parser.accepts(OPT_PARAMS, "Installation parameters").withRequiredArg().describedAs("HEX");
         parser.accepts(OPT_CREATE, "Applet instance AID").withRequiredArg().describedAs("AID");
-        parser.accepts(OPT_UNINSTALL, "Uninstall CAP from card").withRequiredArg().ofType(File.class).describedAs("CAP file");
+        parser.accepts(OPT_UNINSTALL, "Uninstall CAP from card").withRequiredArg().describedAs("CAP file / AID");
 
         parser.accepts(OPT_READER, "Specify reader to use").withRequiredArg().describedAs("reader");
         parser.accepts(OPT_TRACE_API, "Trace Fidesmo API");
         parser.accepts(OPT_TRACE_APDU, "Trace APDU-s");
         parser.accepts(OPT_VERBOSE, "Be verbose");
+
+        parser.accepts(OPT_QA, "Run a QA support session").withOptionalArg().ofType(Integer.class).describedAs("QA number");
+        parser.accepts(OPT_TIMEOUT, "Timeout for services").withRequiredArg().ofType(Integer.class).describedAs("minutes");
 
         parser.acceptsAll(Arrays.asList("V", OPT_VERSION), "Show version and check for updates");
 
@@ -172,7 +178,7 @@ abstract class CommandLineInterface {
 
     public static boolean requiresCard() {
         String[] commands = new String[]{
-                OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_SECURE_APDU, OPT_DELIVER, OPT_RUN, OPT_CARD_APPS, OPT_CARD_INFO
+                OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_SECURE_APDU, OPT_DELIVER, OPT_RUN, OPT_CARD_APPS, OPT_CARD_INFO, OPT_QA
         };
         return Arrays.stream(commands).anyMatch(a -> args.has(a));
     }

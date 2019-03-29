@@ -40,17 +40,33 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class Main extends CommandLineInterface {
+    static final String FDSM_SP = "8e5cdaae";
     private static FidesmoCard fidesmoCard;
 
     public static void main(String[] argv) {
+        System.setProperty("org.slf4j.simpleLogger.showThreadName", "false");
+        System.setProperty("org.slf4j.simpleLogger.levelInBrackets", "true");
+        System.setProperty("org.slf4j.simpleLogger.showShortLogName", "true");
+        System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "error");
+
         try {
             // Inspect arguments
             parseArguments(argv);
+            // Show useful stuff
+            if (args.has(OPT_VERBOSE))
+                System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "info");
+
+            // Check environment
+            inspectEnvironment(args);
 
             // Check for version
             if (args.has(OPT_VERSION)) {
@@ -197,6 +213,28 @@ public class Main extends CommandLineInterface {
                     terminal = LoggingCardTerminal.getInstance(terminal);
                 }
                 Card card = terminal.connect("*");
+                // Allows to run with any card
+                if (args.has(OPT_QA)) {
+                    String number = Integer.toString(new Random().nextInt(900000) + 100000).substring(0, 6);
+                    if (args.valueOf(OPT_QA) != null) {
+                        number = args.valueOf(OPT_QA).toString();
+                    } else {
+                        System.out.printf("Your QA number is %s-%s%n", number.substring(0, 3), number.substring(3, 6));
+                    }
+                    fidesmoCard = FidesmoCard.fakeInstance(card.getBasicChannel());
+                    FidesmoApiClient client = getClient();
+                    checkVersions(client);
+                    FormHandler formHandler = getCommandLineFormHandler();
+
+                    ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, formHandler);
+                    if (args.has(OPT_TIMEOUT))
+                        cardSession.setTimeout((Integer) args.valueOf(OPT_TIMEOUT));
+                    if (!cardSession.deliver(FDSM_SP, number)) {
+                        fail("Failed to run service");
+                    } else {
+                        success();
+                    }
+                }
                 fidesmoCard = FidesmoCard.getInstance(card.getBasicChannel());
                 System.out.println("Using card in " + terminal.getName());
 
@@ -209,7 +247,7 @@ public class Main extends CommandLineInterface {
                             fidesmoCard.getUID().map(i -> HexUtils.bin2hex(i)).orElse("N/A"),
                             showIIN ? String.format(" IIN: %s", HexUtils.bin2hex(fidesmoCard.getIIN())) : "");
                     // For platforms that are not yet supported by fdsm
-                    String platform = FidesmoCard.ChipPlatform.valueOf(fidesmoCard.platformType).orElseThrow(() -> new NotSupportedException("Chip platform not supported")).toString();
+                    String platform = FidesmoCard.ChipPlatform.valueOf(fidesmoCard.platformType).toString();
                     System.out.format("OS type: %s (platfrom v%d)%n", platform, fidesmoCard.platformVersion);
                 }
 
@@ -246,7 +284,9 @@ public class Main extends CommandLineInterface {
                         fail("Need Application ID");
                     }
                     ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, formHandler);
-                    if (!cardSession.deliver(appId, service, System.out)) {
+                    if (args.has(OPT_TIMEOUT))
+                        cardSession.setTimeout((Integer) args.valueOf(OPT_TIMEOUT));
+                    if (!cardSession.deliver(appId, service)) {
                         fail("Failed to run service");
                     } else {
                         success(); // Explicitly quit to signal successful service. Which implies only one service per invocation
@@ -286,17 +326,26 @@ public class Main extends CommandLineInterface {
                         }
                         fidesmoCard.deliverRecipe(client, formHandler, recipe);
                     } else if (args.has(OPT_UNINSTALL)) {
-                        CAPFile cap = CAPFile.fromStream(new FileInputStream((File) args.valueOf(OPT_UNINSTALL)));
-                        String recipe = RecipeGenerator.makeDeleteRecipe(cap.getPackageAID());
+                        String s = (String) args.valueOf(OPT_UNINSTALL);
+                        Path p = Paths.get(s);
+
+                        AID aid = null;
+                        if (!Files.exists(p)) {
+                            try {
+                                aid = AID.fromString(s);
+                            } catch (IllegalArgumentException e) {
+                                fail("Not a file or AID: " + s);
+                            }
+                        } else {
+                            aid = CAPFile.fromBytes(Files.readAllBytes(p)).getPackageAID();
+                        }
+                        String recipe = RecipeGenerator.makeDeleteRecipe(aid);
                         fidesmoCard.deliverRecipe(client, formHandler, recipe);
                     }
 
                     // Can be chained
                     if (args.has(OPT_STORE_DATA)) {
-                        List<byte[]> blobs = new ArrayList<>();
-                        for (Object s : args.valuesOf(OPT_STORE_DATA)) {
-                            blobs.add(HexUtils.stringToBin((String) s));
-                        }
+                        List<byte[]> blobs = args.valuesOf(OPT_STORE_DATA).stream().map(s -> HexUtils.stringToBin((String) s)).collect(Collectors.toList());
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET).toString());
                         String recipe = RecipeGenerator.makeStoreDataRecipe(applet, blobs);
                         fidesmoCard.deliverRecipe(client, formHandler, recipe);
@@ -304,10 +353,7 @@ public class Main extends CommandLineInterface {
 
                     // Can be chained
                     if (args.has(OPT_SECURE_APDU)) {
-                        List<byte[]> apdus = new ArrayList<>();
-                        for (Object s : args.valuesOf(OPT_SECURE_APDU)) {
-                            apdus.add(HexUtils.stringToBin((String) s));
-                        }
+                        List<byte[]> apdus = args.valuesOf(OPT_SECURE_APDU).stream().map(s -> HexUtils.stringToBin((String) s)).collect(Collectors.toList());
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET).toString());
                         String recipe = RecipeGenerator.makeSecureTransceiveRecipe(applet, apdus);
                         fidesmoCard.deliverRecipe(client, formHandler, recipe);
@@ -320,6 +366,8 @@ public class Main extends CommandLineInterface {
             fail("Not supported: " + e.getMessage());
         } catch (HttpResponseException e) {
             fail("API error: " + e.getMessage());
+        } catch (NoSuchFileException e) {
+            fail("No such file: " + e.getMessage());
         } catch (IOException e) {
             fail("I/O error: " + e.getMessage());
         } catch (CardException e) {
@@ -390,11 +438,7 @@ public class Main extends CommandLineInterface {
     }
 
     private static FidesmoApiClient getClient() {
-        FidesmoApiClient client = new FidesmoApiClient();
-        if (apiTrace) {
-            client.setTrace(true);
-        }
-        return client;
+        return new FidesmoApiClient(apiTrace ? System.out : null);
     }
 
     static void checkVersions(FidesmoApiClient client) {
@@ -435,16 +479,10 @@ public class Main extends CommandLineInterface {
     }
 
     private static AuthenticatedFidesmoApiClient getAuthenticatedClient() {
-        // Check environment
-        inspectEnvironment(args);
         if (appId == null || appKey == null) {
             fail("Provide appId and appKey, either via --app-id and --app-key or $FIDESMO_APP_ID and $FIDESMO_APP_KEY");
         }
-        AuthenticatedFidesmoApiClient client = AuthenticatedFidesmoApiClient.getInstance(appId, appKey);
-        if (apiTrace) {
-            client.setTrace(true);
-        }
-        return client;
+        return AuthenticatedFidesmoApiClient.getInstance(appId, appKey, apiTrace ? System.out : null);
     }
 
     private static class FidesmoService {

@@ -28,6 +28,7 @@ import com.payneteasy.tlv.BerTlvParser;
 import com.payneteasy.tlv.BerTlvs;
 import pro.javacard.AID;
 
+import javax.security.auth.callback.UnsupportedCallbackException;
 import javax.smartcardio.CardChannel;
 import javax.smartcardio.CardException;
 import javax.smartcardio.CommandAPDU;
@@ -41,6 +42,7 @@ import java.util.*;
 public class FidesmoCard {
     public enum ChipPlatform {
 
+        UNKNOWN(0),
         JCOP242R1(1),
         JCOP242R2(2),
         JCOP3EMV(3),
@@ -53,12 +55,12 @@ public class FidesmoCard {
             this.v = v;
         }
 
-        public static Optional<ChipPlatform> valueOf(int v) {
+        public static ChipPlatform valueOf(int v) {
             for (ChipPlatform t : values()) {
                 if (t.v == v)
-                    return Optional.of(t);
+                    return t;
             }
-            return Optional.empty();
+            return UNKNOWN;
         }
     }
 
@@ -107,7 +109,7 @@ public class FidesmoCard {
             if (Arrays.equals(e.getKey(), Arrays.copyOf(cplc, e.getKey().length)))
                 return e.getValue();
         }
-        return null;
+        return ChipPlatform.UNKNOWN;
     }
 
     // Capabilities applet AID
@@ -137,11 +139,20 @@ public class FidesmoCard {
         return card;
     }
 
-    public boolean deliverRecipe(AuthenticatedFidesmoApiClient client, FormHandler formHandler, String recipe) throws CardException, IOException {
+    public static FidesmoCard fakeInstance(CardChannel channel) throws CardException {
+        FidesmoCard card = new FidesmoCard(channel);
+        card.uid = new byte[7];
+        card.iin = HexUtils.hex2bin("31045199999906");
+        card.cin = new byte[7];
+        card.batchId = new byte[7];
+        return card;
+    }
+
+    public boolean deliverRecipe(AuthenticatedFidesmoApiClient client, FormHandler formHandler, String recipe) throws CardException, IOException, UnsupportedCallbackException {
         return deliverRecipes(client, formHandler, Collections.singletonList(recipe));
     }
 
-    public boolean deliverRecipes(AuthenticatedFidesmoApiClient client, FormHandler formHandler, List<String> recipes) throws CardException, IOException {
+    public boolean deliverRecipes(AuthenticatedFidesmoApiClient client, FormHandler formHandler, List<String> recipes) throws CardException, IOException, UnsupportedCallbackException {
         ServiceDeliverySession session = ServiceDeliverySession.getInstance(this, client, formHandler);
 
         for (String recipe : recipes) {

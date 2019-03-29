@@ -21,8 +21,8 @@
  */
 package com.fidesmo.fdsm;
 
+import javax.security.auth.callback.*;
 import java.io.Console;
-
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -110,6 +110,34 @@ public class CommandLineFormHandler implements FormHandler {
                 return input;
             default:
                 return Optional.ofNullable(console.readLine("> "));
+        }
+    }
+
+
+    @Override
+    public void handle(Callback[] callbacks) throws UnsupportedCallbackException {
+        for (Callback c : callbacks) {
+            if (c instanceof PasswordCallback) {
+                PasswordCallback pc = (PasswordCallback) c;
+                if (System.getenv().containsKey(pc.getPrompt())) {
+                    pc.setPassword(System.getenv(pc.getPrompt()).toCharArray());
+                } else if (System.console() != null) {
+                    pc.setPassword(System.console().readPassword("Enter %s: ", pc.getPrompt()));
+                } else
+                    throw new UnsupportedCallbackException(c, "We can't get input for " + pc.getPrompt());
+            } else if (c instanceof TextOutputCallback) {
+                System.out.println(((TextOutputCallback) c).getMessage());
+            } else if (c instanceof TextInputCallback) {
+                TextInputCallback tc = (TextInputCallback) c;
+                if (predefinedFields.containsKey(tc.getPrompt())) {
+                    tc.setText(predefinedFields.get(tc.getPrompt()));
+                } else if (System.console() != null) {
+                    tc.setText(System.console().readLine("%s: ", tc.getPrompt()));
+                } else
+                    throw new UnsupportedCallbackException(c, "We can't get input for " + tc.getPrompt());
+            } else {
+                throw new UnsupportedCallbackException(c, "Callback not supported");
+            }
         }
     }
 }

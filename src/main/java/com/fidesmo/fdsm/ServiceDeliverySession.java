@@ -26,16 +26,22 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.http.client.HttpResponseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.OAEPParameterSpec;
 import javax.crypto.spec.PSource;
+import javax.security.auth.callback.Callback;
+import javax.security.auth.callback.TextInputCallback;
+import javax.security.auth.callback.TextOutputCallback;
+import javax.security.auth.callback.UnsupportedCallbackException;
 import javax.smartcardio.CardException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -48,6 +54,9 @@ import java.util.*;
 
 // Delivers a service to a card
 public class ServiceDeliverySession {
+    private final static Logger logger = LoggerFactory.getLogger(ServiceDeliverySession.class);
+    private final static long SESSION_TIMEOUT_MINUTES = 15;
+    private long sessionTimeout;
     private final FidesmoApiClient client;
     private final FidesmoCard card;
     private final FormHandler formHandler;
@@ -57,15 +66,21 @@ public class ServiceDeliverySession {
         this.card = card;
         this.client = client;
         this.formHandler = formHandler;
+        setTimeout(SESSION_TIMEOUT_MINUTES);
+    }
+
+    public void setTimeout(long minutes) {
+        sessionTimeout = minutes * 60 * 1000;
     }
 
     public static ServiceDeliverySession getInstance(FidesmoCard card, FidesmoApiClient client, FormHandler formHandler) {
         return new ServiceDeliverySession(card, client, formHandler);
     }
 
-    public boolean deliver(String appId, String serviceId, PrintStream debug) throws CardException, IOException {
+    public boolean deliver(String appId, String serviceId) throws CardException, IOException, UnsupportedCallbackException {
         // Address #4
         client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(card.getCIN()), new BigInteger(1, card.getBatchId()).toString()));
+
         // Query service parameters
         JsonNode service = client.rpc(client.getURI(FidesmoApiClient.SERVICE_URL, appId, serviceId), null);
 
@@ -123,49 +138,56 @@ public class ServiceDeliverySession {
 
         JsonNode delivery = client.rpc(client.getURI(FidesmoApiClient.SERVICE_DELIVER_URL), deliveryrequest);
         String sessionId = delivery.get("sessionId").asText();
-        debug.println("Delivering: " + FidesmoApiClient.lamei18n(description.get("title")));
-        debug.println("Session ID: " + sessionId);
+        logger.info("Delivering: {}", FidesmoApiClient.lamei18n(description.get("title")));
+        logger.info("Session ID: {}", sessionId);
 
         ObjectNode fetchrequest = emptyFetchRequest(sessionId);
+        long lastActivity = System.currentTimeMillis();
+
         // Now loop getting the operations
         while (true) {
-            JsonNode fetch = client.rpc(client.getURI(FidesmoApiClient.SERVICE_FETCH_URL), fetchrequest);
+            try {
+                JsonNode fetch = client.rpc(client.getURI(FidesmoApiClient.SERVICE_FETCH_URL), fetchrequest);
+                // Successful fetch extends timeout
+                lastActivity = System.currentTimeMillis();
 
-            // Check if done
-            if (fetch.get("completed").asBoolean()) {
-                if (fetch.get("status").get("success").asBoolean()) {
-                    debug.println("Success: " + FidesmoApiClient.lamei18n(fetch.get("status").get("message")));
-                    return true;
-                } else {
-                    debug.println("Failure: " + FidesmoApiClient.lamei18n(fetch.get("status").get("message")));
-                    return false;
+                // Check if done
+                if (fetch.get("completed").asBoolean()) {
+                    if (fetch.get("status").get("success").asBoolean()) {
+                        logger.info("Success: " + FidesmoApiClient.lamei18n(fetch.get("status").get("message")));
+                        return true;
+                    } else {
+                        logger.info("Failure: " + FidesmoApiClient.lamei18n(fetch.get("status").get("message")));
+                        return false;
+                    }
                 }
-            }
 
-            // Process operations
-            String operationType = fetch.get("operationType").asText();
-            switch (operationType) {
-                case "transceive":
-                    fetchrequest = processTransmitOperation(fetch.get("operationId"), sessionId);
-                    break;
-                case "user-interaction":
-                    fetchrequest = processUIOperation(fetch, sessionId, description);
-                    break;
-                case "action":
-                    fetchrequest = processUserAction(fetch, sessionId);
-                    break;
-                default:
-                    throw new NotSupportedException("Unsupported operation: " + fetch);
+                // Process operations
+                String operationType = fetch.get("operationType").asText();
+                switch (operationType) {
+                    case "transceive":
+                        fetchrequest = processTransmitOperation(fetch.get("operationId"), sessionId);
+                        break;
+                    case "user-interaction":
+                        fetchrequest = processUIOperation(fetch, sessionId, description);
+                        break;
+                    case "action":
+                        fetchrequest = processUserAction(fetch, sessionId);
+                        break;
+                    default:
+                        throw new NotSupportedException("Unsupported operation: " + fetch);
+                }
+            } catch (HttpResponseException e) {
+                if (e.getStatusCode() == 503) {
+                    long timeSpent = System.currentTimeMillis() - lastActivity;
+                    if (timeSpent < sessionTimeout) {
+                        logger.warn("Timeout, but re-trying for another {}", time((sessionTimeout - timeSpent)));
+                        continue;
+                    }
+                }
+                throw e;
             }
         }
-    }
-
-    /**
-     * Deprecated in favor of {deliver{@link #deliver(String, String, PrintStream)}}
-     */
-    @Deprecated
-    public boolean deliver(String appId, String serviceId) throws CardException, IOException {
-        return deliver(appId, serviceId, System.out);
     }
 
     protected ObjectNode processTransmitOperation(JsonNode operationId, String sessionId) throws CardException, IOException {
@@ -295,15 +317,17 @@ public class ServiceDeliverySession {
     }
 
 
-    protected ObjectNode processUserAction(JsonNode operation, String sessionId) throws IOException {
+    protected ObjectNode processUserAction(JsonNode operation, String sessionId) throws IOException, UnsupportedCallbackException {
 
         JsonNode commands = operation.get("actions");
         for (JsonNode cmd : commands) {
             String action = cmd.get("name").asText();
             switch (action) {
                 case "phonecall":
-                    System.out.println(FidesmoApiClient.lamei18n(cmd.get("description")));
-                    System.console().readLine("Please call " + cmd.get("parameters").get("number").asText() + " and press ENTER to continue!");
+                    TextOutputCallback cb1 = new TextOutputCallback(TextOutputCallback.INFORMATION, FidesmoApiClient.lamei18n(cmd.get("description")));
+                    TextOutputCallback cb2 = new TextOutputCallback(TextOutputCallback.INFORMATION, "Please call " + cmd.get("parameters").get("number").asText());
+                    TextInputCallback cb3 = new TextInputCallback("Press ENTER to continue"); // XXX: a bit tied to the implementation
+                    formHandler.handle(new Callback[]{cb1, cb2, cb3});
                     break;
                 default:
                     throw new NotSupportedException("Unknown action: " + cmd);
@@ -373,5 +397,15 @@ public class ServiceDeliverySession {
         }
 
         return fields;
+    }
+
+    private String time(long ms) {
+        String time = ms + "ms";
+        if (ms > 60000) {
+            time = (ms / 60000) + "m" + ((ms % 60000) / 1000) + "s";
+        } else if (ms > 1000) {
+            time = (ms / 1000) + "s" + (ms % 1000) + "ms";
+        }
+        return time;
     }
 }

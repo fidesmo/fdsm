@@ -34,16 +34,22 @@ import pro.javacard.CAPPackage;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.URI;
 
 public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
-    private AuthenticatedFidesmoApiClient(String appId, String appKey) {
-        super(appId, appKey);
+    private AuthenticatedFidesmoApiClient(String appId, String appKey, PrintStream apidump) {
+        super(appId, appKey, apidump);
     }
 
     public static AuthenticatedFidesmoApiClient getInstance(String appId, String appKey) throws IllegalArgumentException {
-        return new AuthenticatedFidesmoApiClient(appId, appKey);
+        return new AuthenticatedFidesmoApiClient(appId, appKey, null);
     }
+
+    public static AuthenticatedFidesmoApiClient getInstance(String appId, String appKey, PrintStream apidump) throws IllegalArgumentException {
+        return new AuthenticatedFidesmoApiClient(appId, appKey, apidump);
+    }
+
 
     public void put(URI uri, String json) throws IOException {
         HttpPut put = new HttpPut(uri);

@@ -39,10 +39,7 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -74,8 +71,7 @@ public class FidesmoApiClient {
 
     public static final String DEVICES_URL = "devices/%s?batchId=%s";
 
-
-    private boolean restdebug = false; // RPC debug
+    private PrintStream apidump;
     private final CloseableHttpClient http;
     private final HttpClientContext context = HttpClientContext.create();
     protected final String appId;
@@ -93,10 +89,14 @@ public class FidesmoApiClient {
     }
 
     public FidesmoApiClient() {
-        this(null, null);
+        this(null, null, null);
     }
 
-    public FidesmoApiClient(String appId, String appKey) {
+    public FidesmoApiClient(PrintStream apidump) {
+        this(null, null, apidump);
+    }
+
+    public FidesmoApiClient(String appId, String appKey, PrintStream apidump) {
         if (appId != null && appKey != null) {
             if (HexUtils.hex2bin(appId).length != 4)
                 throw new IllegalArgumentException("appId must be 4 bytes long (8 hex characters)");
@@ -118,24 +118,17 @@ public class FidesmoApiClient {
         this.http = HttpClientBuilder.create().useSystemProperties().setUserAgent("fdsm/" + getVersion()).build();
         this.appId = appId;
         this.appKey = appKey;
+        this.apidump = apidump;
     }
 
-    public static boolean checkAppId(String appId) {
-        try {
-            return HexUtils.hex2bin(appId).length == 4;
-        } catch (IllegalArgumentException e) {
-            // Pass through
-        }
-        return false;
-    }
-
-    CloseableHttpResponse transmit(HttpRequestBase request) throws IOException {
+    public CloseableHttpResponse transmit(HttpRequestBase request) throws IOException {
         if (appId != null && appKey != null) {
             request.setHeader("app_id", appId);
             request.setHeader("app_key", appKey);
         }
-        if (restdebug) {
-            System.out.println(request.getMethod() + ": " + request.getURI());
+        // XXX: GET/POST get handled in rpc(), this is only for PUT
+        if (apidump != null && !(request.getMethod().equals("GET") || request.getMethod().equals("POST"))) {
+            apidump.println(request.getMethod() + ": " + request.getURI());
         }
 
         CloseableHttpResponse response = http.execute(request, context);
@@ -148,26 +141,25 @@ public class FidesmoApiClient {
         return response;
     }
 
-    JsonNode rpc(URI uri) throws IOException {
+    public JsonNode rpc(URI uri) throws IOException {
         return rpc(uri, null);
     }
 
-    JsonNode rpc(URI uri, JsonNode request) throws IOException {
-        HttpRequestBase req;
+    public JsonNode rpc(URI uri, JsonNode request) throws IOException {
+        final HttpRequestBase req;
         if (request != null) {
             HttpPost post = new HttpPost(uri);
             post.setEntity(new ByteArrayEntity(mapper.writeValueAsBytes(request)));
             req = post;
-            if (restdebug) {
-                System.out.println("POST: " + uri);
-                System.out.println(mapper.writer(printer).writeValueAsString(request));
-            }
         } else {
             HttpGet get = new HttpGet(uri);
             req = get;
-            if (restdebug) {
-                System.out.println("GET: " + uri);
-            }
+        }
+
+        if (apidump != null) {
+            apidump.println(req.getMethod() + ": " + req.getURI());
+            if (req.getMethod().equals("POST"))
+                apidump.println(mapper.writer(printer).writeValueAsString(request));
         }
 
         req.setHeader("Accept", ContentType.APPLICATION_JSON.toString());
@@ -175,9 +167,9 @@ public class FidesmoApiClient {
 
         try (CloseableHttpResponse response = transmit(req)) {
             JsonNode json = mapper.readTree(response.getEntity().getContent());
-            if (restdebug) {
-                System.out.println("RECV:");
-                System.out.println(mapper.writer(printer).writeValueAsString(json));
+            if (apidump != null) {
+                apidump.println("RECV:");
+                apidump.println(mapper.writer(printer).writeValueAsString(json));
             }
             return json;
         }
@@ -187,12 +179,13 @@ public class FidesmoApiClient {
         try {
             return new URI(String.format(apiurl + template, args));
         } catch (URISyntaxException e) {
-            throw new IllegalArgumentException("Invalid stuff: " + e.getMessage(), e);
+            throw new IllegalArgumentException("Invalid url: " + e.getMessage(), e);
         }
     }
 
+    @Deprecated
     public void setTrace(boolean b) {
-        restdebug = b;
+        apidump = b ? System.out : null;
     }
 
     public static String getVersion() {
