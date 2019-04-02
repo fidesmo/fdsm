@@ -133,14 +133,14 @@ public class Main extends CommandLineInterface {
                         for (JsonNode e : applets) {
                             String aid = e.get("elfAid").asText().toUpperCase();
                             List<String> variant = new ArrayList<>();
-                            if (e.has("globalPlatformVersion")) {
-                                variant.add("GP/" + e.get("globalPlatformVersion").asText());
-                            }
                             if (e.has("javaCardVersion")) {
                                 variant.add("JC/" + e.get("javaCardVersion").asText());
                             }
-                            if (e.has("otvVersion")) {
-                                variant.add(e.get("otvVersion").asText());
+                            if (e.get("metadata").has("gp-version")) {
+                                variant.add("GP/" + e.get("metadata").get("gp-version").asText());
+                            }
+                            if (e.get("metadata").has("otv-version")) {
+                                variant.add(e.get("metadata").get("otv-version").asText());
                             }
                             Map<String, String> ids = r.getOrDefault(aid, new HashMap<>());
                             ids.put(e.get("id").asText(), String.join(", ", variant));
