@@ -102,12 +102,20 @@ public class Main extends CommandLineInterface {
                 // Delete a specific applet
                 if (args.has(OPT_DELETE_APPLET)) {
                     String id = args.valueOf(OPT_DELETE_APPLET).toString();
+                    // DWIM: take ID or CAP file as argument
+                    if (!id.toLowerCase().matches("[a-f0-9]{64}")) {
+                        Path candidate = Paths.get(id);
+                        if (Files.exists(candidate)) {
+                            CAPFile tmp = CAPFile.fromBytes(Files.readAllBytes(candidate));
+                            id = HexUtils.bin2hex(tmp.getLoadFileDataHash("SHA-256", false));
+                        } else {
+                            fail("Not a SHA-256: " + id);
+                        }
+                    }
                     try {
-                        UUID uuid = UUID.fromString(id);
-                        client.delete(client.getURI(FidesmoApiClient.ELF_ID_URL, uuid.toString()));
+                        // XXX: case-sensitive
+                        client.delete(client.getURI(FidesmoApiClient.ELF_ID_URL, id.toLowerCase()));
                         System.out.println(id + " deleted.");
-                    } catch (IllegalArgumentException e) {
-                        fail("Not a valid UUID: " + id);
                     } catch (HttpResponseException e) {
                         if (e.getStatusCode() == 404) {
                             fail("Not found: " + id);
@@ -125,14 +133,14 @@ public class Main extends CommandLineInterface {
                         for (JsonNode e : applets) {
                             String aid = e.get("elfAid").asText().toUpperCase();
                             List<String> variant = new ArrayList<>();
-                            if (e.has("globalPlatformVersion")) {
-                                variant.add("GP/" + e.get("globalPlatformVersion").asText());
-                            }
                             if (e.has("javaCardVersion")) {
                                 variant.add("JC/" + e.get("javaCardVersion").asText());
                             }
-                            if (e.has("otvVersion")) {
-                                variant.add(e.get("otvVersion").asText());
+                            if (e.get("metadata").has("gp-version")) {
+                                variant.add("GP/" + e.get("metadata").get("gp-version").asText());
+                            }
+                            if (e.get("metadata").has("otv-version")) {
+                                variant.add(e.get("metadata").get("otv-version").asText());
                             }
                             Map<String, String> ids = r.getOrDefault(aid, new HashMap<>());
                             ids.put(e.get("id").asText(), String.join(", ", variant));
