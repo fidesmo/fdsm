@@ -22,6 +22,7 @@
 package com.fidesmo.fdsm;
 
 import apdu4j.HexUtils;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.payneteasy.tlv.BerTag;
 import com.payneteasy.tlv.BerTlv;
 import com.payneteasy.tlv.BerTlvParser;
@@ -34,6 +35,7 @@ import javax.smartcardio.CardException;
 import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -48,6 +50,8 @@ public class FidesmoCard {
         JCOP3EMV(3),
         JCOP3SECIDCS(4),
         ST31(5);
+
+        // TODO Add Gemalto Optelio G277 and NXP JCOP 4 P71 (also to CPLC_PLATFORMS map)
 
         private int v;
 
@@ -115,8 +119,10 @@ public class FidesmoCard {
     // Capabilities applet AID
     public static final AID FIDESMO_APP_AID = AID.fromString("A000000617020002000001");
     public static final AID FIDESMO_BATCH_AID = AID.fromString("A000000617020002000002");
+    public static final AID FIDESMO_PLATFORM_AID = AID.fromString("A00000061702000900010101");
 
     private final CardChannel channel;
+    private final FidesmoApiClient client;
     private byte[] uid = null;
     private byte[] iin = null;
     private byte[] cin = null;
@@ -128,19 +134,20 @@ public class FidesmoCard {
     int platformType = 1;
     int mifareType = 2;
 
-    private FidesmoCard(CardChannel channel) {
+    private FidesmoCard(CardChannel channel, FidesmoApiClient client) {
         this.channel = channel;
+        this.client = client;
     }
 
-    public static FidesmoCard getInstance(CardChannel channel) throws CardException {
-        FidesmoCard card = new FidesmoCard(channel);
-        if (!card.detect())
+    public static FidesmoCard getInstance(CardChannel channel, FidesmoApiClient client) throws CardException, IOException {
+        FidesmoCard card = new FidesmoCard(channel, client);
+        if (!(card.detectPlatformV2() || card.detectPlatformV3()))
             throw new IllegalArgumentException("Did not detect a Fidesmo card!");
         return card;
     }
 
     public static FidesmoCard fakeInstance(CardChannel channel) throws CardException {
-        FidesmoCard card = new FidesmoCard(channel);
+        FidesmoCard card = new FidesmoCard(channel, null);
         card.uid = new byte[7];
         card.iin = HexUtils.hex2bin("31045199999906");
         card.cin = new byte[7];
@@ -206,7 +213,7 @@ public class FidesmoCard {
         return Optional.ofNullable(uid);
     }
 
-    public boolean detect() throws CardException {
+    public boolean detectPlatformV2() throws CardException {
         // Select ISD
         CommandAPDU selectISD = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, 0x00);
         ResponseAPDU response = channel.transmit(selectISD);
@@ -232,6 +239,7 @@ public class FidesmoCard {
         if (data[0] == (byte) 0x9f && data[1] == (byte) 0x7f && data[2] == (byte) 0x2A)
             data = Arrays.copyOfRange(data, 3, data.length);
         cplc = data;
+
         // Read IIN + CIN
         CommandAPDU getDataIIN = new CommandAPDU(0x00, 0xCA, 0x00, 0x42, 0x00);
         response = channel.transmit(getDataIIN);
@@ -279,6 +287,68 @@ public class FidesmoCard {
             ByteBuffer platformTypeValue = ByteBuffer.wrap(platformTypeTag.getBytesValue());
             platformType = platformTypeValue.getInt();
         }
+        return true;
+    }
+
+    public boolean detectPlatformV3() throws CardException, IOException {
+        // Select ISD
+        CommandAPDU selectISD = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, 0x00);
+        ResponseAPDU response = channel.transmit(selectISD);
+        if (response.getSW() != 0x9000)
+            return false;
+
+        // See if we get the UID from ACS(-compatible) readers
+        // NOTE: to make sure we get a sane response if the reader does not support
+        // the command, ISD MUST be selected before this command
+        CommandAPDU getUID = new CommandAPDU(HexUtils.hex2bin("FFCA000000"));
+        response = channel.transmit(getUID);
+        // Sensibility check: UID size
+        if (response.getSW() == 0x9000 && response.getData().length <= 7) {
+            uid = response.getData();
+        }
+        // Get CPLC
+        CommandAPDU getCPLC = new CommandAPDU(0x80, 0xCA, 0x9F, 0x7F, 0x00);
+        response = channel.transmit(getCPLC);
+        if (response.getSW() != 0x9000 || response.getData().length == 0)
+            return false;
+        byte[] data = response.getData();
+        // Remove tag, if present
+        if (data[0] == (byte) 0x9f && data[1] == (byte) 0x7f && data[2] == (byte) 0x2A)
+            data = Arrays.copyOfRange(data, 3, data.length);
+        cplc = data;
+
+        // Select Platform applet
+        CommandAPDU selectFidesmoPlatform = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, FIDESMO_PLATFORM_AID.getBytes());
+        response = channel.transmit(selectFidesmoPlatform);
+        if (response.getSW() != 0x9000)
+            return false;
+        BerTlvParser parser = new BerTlvParser();
+        BerTlvs tlvs = parser.parse(fixup(response.getData()));
+
+        // Read BatchId
+        BerTlv batchIdTag = tlvs.find(new BerTag(0x42));
+        if (batchIdTag != null) {
+            batchId = batchIdTag.getBytesValue();
+        }
+
+        // Read CIN
+        BerTlv cinTag = tlvs.find(new BerTag(0x45));
+        if (cinTag != null) {
+            cin = cinTag.getBytesValue();
+        }
+
+        // Request device info
+        JsonNode device = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(cin), new BigInteger(1, batchId).toString()));
+
+        // Read IIN
+        iin = HexUtils.decodeHexString_imp(device.get("iin").asText());
+
+        // Read capabilities
+        JsonNode capabilities = device.get("description").get("capabilities");
+        platformVersion = capabilities.get("platformVersion").asInt();
+        mifareType = capabilities.get("mifareType").asInt();
+        platformType = capabilities.get("osTypeVersion").asInt();
+
         return true;
     }
 
