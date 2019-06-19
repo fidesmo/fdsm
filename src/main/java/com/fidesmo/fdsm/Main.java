@@ -39,6 +39,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.math.BigInteger;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
@@ -217,11 +218,7 @@ public class Main extends CommandLineInterface {
                         fail(String.format("Reader \"%s\" not found", reader));
                     }
                 } else {
-                    try {
-                        terminal = TerminalManager.getByAID(Collections.singletonList(FidesmoCard.FIDESMO_APP_AID.getBytes()));
-                    } catch (CardNotPresentException ce){
-                        terminal = TerminalManager.getByAID(Collections.singletonList(FidesmoCard.FIDESMO_PLATFORM_AID.getBytes()));
-                    }
+                    terminal = TerminalManager.getByAID(Arrays.asList(FidesmoCard.FIDESMO_APP_AID.getBytes(), FidesmoCard.FIDESMO_PLATFORM_AID.getBytes()));
                 }
 
                 if (apduTrace) {
@@ -249,20 +246,32 @@ public class Main extends CommandLineInterface {
                         success();
                     }
                 }
-                fidesmoCard = FidesmoCard.getInstance(card.getBasicChannel(), client);
+                fidesmoCard = FidesmoCard.getInstance(card.getBasicChannel());
                 System.out.println("Using card in " + terminal.getName());
 
                 // Can be used always
                 if (args.has(OPT_CARD_INFO)) {
-                    boolean showIIN = isDeveloperMode() || args.has(OPT_VERBOSE);
-                    System.out.format("CIN: %s BATCH: %s UID: %s%s%n",
+                    System.out.format("CIN: %s BATCH: %s UID: %s%n",
                             printableCIN(fidesmoCard.getCIN()),
                             HexUtils.bin2hex(fidesmoCard.getBatchId()),
-                            fidesmoCard.getUID().map(i -> HexUtils.bin2hex(i)).orElse("N/A"),
-                            showIIN ? String.format(" IIN: %s", HexUtils.bin2hex(fidesmoCard.getIIN())) : "");
+                            fidesmoCard.getUID().map(i -> HexUtils.bin2hex(i)).orElse("N/A"));
+                }
+
+                // Can be used always
+                if (args.has(OPT_DEVICE_INFO)) {
+                    boolean showIIN = isDeveloperMode() || args.has(OPT_VERBOSE);
+                    JsonNode device = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(fidesmoCard.getCIN()), new BigInteger(1, fidesmoCard.getBatchId()).toString()));
+                    byte[] iin = HexUtils.decodeHexString_imp(device.get("iin").asText());
+                    // Read capabilities
+                    JsonNode capabilities = device.get("description").get("capabilities");
+                    int platformVersion = capabilities.get("platformVersion").asInt();
+                    int platformType = capabilities.get("osTypeVersion").asInt();
+
+                    System.out.format("IIN: %s %n",
+                            showIIN ? String.format(" IIN: %s", HexUtils.bin2hex(iin)) : "");
                     // For platforms that are not yet supported by fdsm
-                    String platform = FidesmoCard.ChipPlatform.valueOf(fidesmoCard.platformType).toString();
-                    System.out.format("OS type: %s (platfrom v%d)%n", platform, fidesmoCard.platformVersion);
+                    String platform = FidesmoCard.ChipPlatform.valueOf(platformType).toString();
+                    System.out.format("OS type: %s (platform v%d)%n", platform, platformVersion);
                 }
 
                 if (args.has(OPT_CARD_APPS)) {
