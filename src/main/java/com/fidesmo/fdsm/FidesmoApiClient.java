@@ -57,6 +57,7 @@ public class FidesmoApiClient {
     public static final String APP_SERVICES_URL = "apps/%s/services";
 
     public static final String SERVICE_URL = "apps/%s/services/%s";
+    public static final String SERVICE_FOR_CARD_URL = "apps/%s/services/%s?cin=%s";
     public static final String SERVICE_RECIPE_URL = "apps/%s/services/%s/recipe";
     public static final String RECIPE_SERVICES_URL = "apps/%s/recipe-services";
 
