@@ -191,8 +191,6 @@ public class FidesmoApiClient {
         }
     }
 
-
-
     public URI getURI(String template, String... args) {
         try {
             return new URI(String.format(apiurl + template, args));
