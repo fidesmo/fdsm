@@ -41,7 +41,7 @@ abstract class CommandLineInterface {
     final static String OPT_DELETE_APPLET = "delete-applet";
     final static String OPT_CARD_APPS = "card-apps";
     final static String OPT_CARD_INFO = "card-info";
-    final static String OPT_DEVICE_INFO = "device-info";
+    final static String OPT_OFFLINE = "offline";
     final static String OPT_STORE_APPS = "store-apps";
     final static String OPT_FLUSH_APPLETS = "flush-applets";
     final static String OPT_LIST_RECIPES = "list-recipes";
@@ -69,6 +69,7 @@ abstract class CommandLineInterface {
     protected static boolean apduTrace = false;
     protected static boolean apiTrace = false;
     protected static boolean verbose = false;
+    protected static boolean offline = false;
 
     protected static OptionSet args = null;
 
@@ -125,7 +126,7 @@ abstract class CommandLineInterface {
         parser.accepts(OPT_DELETE_APPLET, "Deletes applet from Fidesmo").withRequiredArg().describedAs("ID");
         parser.accepts(OPT_CARD_APPS, "List apps on the card");
         parser.accepts(OPT_CARD_INFO, "Show info about the card");
-        parser.accepts(OPT_DEVICE_INFO, "Show info about card capabilities");
+        parser.accepts(OPT_OFFLINE, "Do not connect to Fidesmo server for retrieving further device info");
         parser.accepts(OPT_SECURE_APDU, "Send APDU via secure channel").withRequiredArg().describedAs("HEX");
 
         parser.accepts(OPT_STORE_APPS, "List apps in the store");
@@ -175,12 +176,14 @@ abstract class CommandLineInterface {
             apduTrace = true;
         if (args.has(OPT_VERBOSE))
             verbose = true;
+        if (args.has(OPT_OFFLINE))
+            offline = true;
         return args;
     }
 
     public static boolean requiresCard() {
         String[] commands = new String[]{
-                OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_SECURE_APDU, OPT_DELIVER, OPT_RUN, OPT_CARD_APPS, OPT_CARD_INFO, OPT_DEVICE_INFO, OPT_QA
+                OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_SECURE_APDU, OPT_DELIVER, OPT_RUN, OPT_CARD_APPS, OPT_CARD_INFO, OPT_QA
         };
         return Arrays.stream(commands).anyMatch(a -> args.has(a));
     }

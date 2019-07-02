@@ -33,7 +33,6 @@ import pro.javacard.CAPFile;
 import javax.crypto.Cipher;
 import javax.smartcardio.Card;
 import javax.smartcardio.CardException;
-import javax.smartcardio.CardNotPresentException;
 import javax.smartcardio.CardTerminal;
 import java.io.File;
 import java.io.FileInputStream;
@@ -255,23 +254,21 @@ public class Main extends CommandLineInterface {
                             printableCIN(fidesmoCard.getCIN()),
                             HexUtils.bin2hex(fidesmoCard.getBatchId()),
                             fidesmoCard.getUID().map(i -> HexUtils.bin2hex(i)).orElse("N/A"));
-                }
+                    if (!args.has(OPT_OFFLINE)) {
+                        boolean showIIN = isDeveloperMode() || args.has(OPT_VERBOSE);
+                        JsonNode device = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(fidesmoCard.getCIN()), new BigInteger(1, fidesmoCard.getBatchId()).toString()));
+                        byte[] iin = HexUtils.decodeHexString_imp(device.get("iin").asText());
+                        // Read capabilities
+                        JsonNode capabilities = device.get("description").get("capabilities");
+                        int platformVersion = capabilities.get("platformVersion").asInt();
+                        int platformType = capabilities.get("osTypeVersion").asInt();
 
-                // Can be used always
-                if (args.has(OPT_DEVICE_INFO)) {
-                    boolean showIIN = isDeveloperMode() || args.has(OPT_VERBOSE);
-                    JsonNode device = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(fidesmoCard.getCIN()), new BigInteger(1, fidesmoCard.getBatchId()).toString()));
-                    byte[] iin = HexUtils.decodeHexString_imp(device.get("iin").asText());
-                    // Read capabilities
-                    JsonNode capabilities = device.get("description").get("capabilities");
-                    int platformVersion = capabilities.get("platformVersion").asInt();
-                    int platformType = capabilities.get("osTypeVersion").asInt();
-
-                    System.out.format("IIN: %s %n",
-                            showIIN ? String.format(" IIN: %s", HexUtils.bin2hex(iin)) : "");
-                    // For platforms that are not yet supported by fdsm
-                    String platform = FidesmoCard.ChipPlatform.valueOf(platformType).toString();
-                    System.out.format("OS type: %s (platform v%d)%n", platform, platformVersion);
+                        System.out.format("IIN: %s %n",
+                                showIIN ? String.format(" IIN: %s", HexUtils.bin2hex(iin)) : "");
+                        // For platforms that are not yet supported by fdsm
+                        String platform = FidesmoCard.ChipPlatform.valueOf(platformType).toString();
+                        System.out.format("OS type: %s (platform v%d)%n", platform, platformVersion);
+                    }
                 }
 
                 if (args.has(OPT_CARD_APPS)) {
