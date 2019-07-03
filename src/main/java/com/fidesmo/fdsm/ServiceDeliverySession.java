@@ -79,7 +79,10 @@ public class ServiceDeliverySession {
 
     public boolean deliver(String appId, String serviceId) throws CardException, IOException, UnsupportedCallbackException {
         // Address #4
-        client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(card.getCIN()), new BigInteger(1, card.getBatchId()).toString()));
+        JsonNode deviceInfo = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(card.getCIN()), new BigInteger(1, card.getBatchId()).toString()));
+        byte[] iin = HexUtils.decodeHexString_imp(deviceInfo.get("iin").asText());
+        JsonNode capabilities = deviceInfo.get("description").get("capabilities");
+        int platformVersion = capabilities.get("platformVersion").asInt();
 
         // Query service parameters
         JsonNode service = client.rpc(client.getURI(FidesmoApiClient.SERVICE_FOR_CARD_URL, appId, serviceId, HexUtils.bin2hex(card.getCIN())), null);
@@ -106,9 +109,9 @@ public class ServiceDeliverySession {
 
         // cardId
         ObjectNode cardId = JsonNodeFactory.instance.objectNode();
-        cardId.put("iin", HexUtils.bin2hex(card.getIIN()));
+        cardId.put("iin", HexUtils.bin2hex(iin));
         cardId.put("cin", HexUtils.bin2hex(card.getCIN()));
-        cardId.put("platformVersion", card.platformVersion);
+        cardId.put("platformVersion", platformVersion);
         deliveryrequest.set("cardId", cardId);
 
         // User input fields
@@ -127,13 +130,7 @@ public class ServiceDeliverySession {
 
         deliveryrequest.set("fields", mapToJsonNode(userInput));
 
-        // Capabilities, partial
-        ObjectNode capabilities = JsonNodeFactory.instance.objectNode();
-        capabilities.put("platformVersion", card.platformVersion);
-        capabilities.put("mifareType", card.mifareType);
-        capabilities.put("osTypeVersion", card.platformType);
-        capabilities.put("globalPlatformVersion", 0x0202); // Fixed to GlobalPlatform 2.2
-        capabilities.put("jcVersion", 0x0300); // Fixed to JavaCard 3.0
+        // Capabilities, (re-use received object when requesting device info)
         deliveryrequest.set("capabilities", capabilities);
 
         JsonNode delivery = client.rpc(client.getURI(FidesmoApiClient.SERVICE_DELIVER_URL), deliveryrequest);

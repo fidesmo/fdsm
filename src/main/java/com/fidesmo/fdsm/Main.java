@@ -38,6 +38,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.math.BigInteger;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
@@ -201,6 +202,8 @@ public class Main extends CommandLineInterface {
 
             // Following requires card access
             if (requiresCard()) {
+                FidesmoApiClient client = getClient();
+                checkVersions(client);
                 // Locate a Fidesmo card, unless asked for a specific terminal
                 CardTerminal terminal = null;
                 if (args.has(OPT_READER)) {
@@ -214,7 +217,7 @@ public class Main extends CommandLineInterface {
                         fail(String.format("Reader \"%s\" not found", reader));
                     }
                 } else {
-                    terminal = TerminalManager.getByAID(Collections.singletonList(FidesmoCard.FIDESMO_APP_AID.getBytes()));
+                    terminal = TerminalManager.getByAID(Arrays.asList(FidesmoCard.FIDESMO_APP_AID.getBytes(), FidesmoCard.FIDESMO_PLATFORM_AID.getBytes()));
                 }
 
                 if (apduTrace) {
@@ -230,8 +233,7 @@ public class Main extends CommandLineInterface {
                         System.out.printf("Your QA number is %s-%s%n", number.substring(0, 3), number.substring(3, 6));
                     }
                     fidesmoCard = FidesmoCard.fakeInstance(card.getBasicChannel());
-                    FidesmoApiClient client = getClient();
-                    checkVersions(client);
+
                     FormHandler formHandler = getCommandLineFormHandler();
 
                     ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, formHandler);
@@ -248,19 +250,28 @@ public class Main extends CommandLineInterface {
 
                 // Can be used always
                 if (args.has(OPT_CARD_INFO)) {
-                    boolean showIIN = isDeveloperMode() || args.has(OPT_VERBOSE);
-                    System.out.format("CIN: %s BATCH: %s UID: %s%s%n",
+                    System.out.format("CIN: %s BATCH: %s UID: %s%n",
                             printableCIN(fidesmoCard.getCIN()),
                             HexUtils.bin2hex(fidesmoCard.getBatchId()),
-                            fidesmoCard.getUID().map(i -> HexUtils.bin2hex(i)).orElse("N/A"),
-                            showIIN ? String.format(" IIN: %s", HexUtils.bin2hex(fidesmoCard.getIIN())) : "");
-                    // For platforms that are not yet supported by fdsm
-                    String platform = FidesmoCard.ChipPlatform.valueOf(fidesmoCard.platformType).toString();
-                    System.out.format("OS type: %s (platfrom v%d)%n", platform, fidesmoCard.platformVersion);
+                            fidesmoCard.getUID().map(i -> HexUtils.bin2hex(i)).orElse("N/A"));
+                    if (!args.has(OPT_OFFLINE)) {
+                        boolean showIIN = isDeveloperMode() || args.has(OPT_VERBOSE);
+                        JsonNode device = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(fidesmoCard.getCIN()), new BigInteger(1, fidesmoCard.getBatchId()).toString()));
+                        byte[] iin = HexUtils.decodeHexString_imp(device.get("iin").asText());
+                        // Read capabilities
+                        JsonNode capabilities = device.get("description").get("capabilities");
+                        int platformVersion = capabilities.get("platformVersion").asInt();
+                        int platformType = capabilities.get("osTypeVersion").asInt();
+
+                        System.out.format("IIN: %s %n",
+                                showIIN ? String.format(" IIN: %s", HexUtils.bin2hex(iin)) : "");
+                        // For platforms that are not yet supported by fdsm
+                        String platform = FidesmoCard.ChipPlatform.valueOf(platformType).toString();
+                        System.out.format("OS type: %s (platform v%d)%n", platform, platformVersion);
+                    }
                 }
 
                 if (args.has(OPT_CARD_APPS)) {
-                    FidesmoApiClient client = getClient();
                     List<byte[]> apps = fidesmoCard.listApps();
                     if (apps.size() > 0) {
                         printApps(queryApps(client, apps, verbose), System.out, verbose);
@@ -275,8 +286,6 @@ public class Main extends CommandLineInterface {
                     } else {
                         service = args.valueOf(OPT_RUN).toString();
                     }
-                    FidesmoApiClient client = getClient();
-                    checkVersions(client);
                     FormHandler formHandler = getCommandLineFormHandler();
 
                     if (service.contains("/")) {
@@ -300,8 +309,8 @@ public class Main extends CommandLineInterface {
                         success(); // Explicitly quit to signal successful service. Which implies only one service per invocation
                     }
                 } else if (requiresAuthentication()) { // XXX
-                    AuthenticatedFidesmoApiClient client = getAuthenticatedClient();
-                    checkVersions(client); // Always check versions
+                    AuthenticatedFidesmoApiClient authenticatedClient = getAuthenticatedClient();
+                    checkVersions(authenticatedClient); // Always check versions
                     FormHandler formHandler = getCommandLineFormHandler();
 
                     if (args.has(OPT_INSTALL)) {
@@ -330,9 +339,9 @@ public class Main extends CommandLineInterface {
                         }
                         String recipe = RecipeGenerator.makeInstallRecipe(cap.getPackageAID(), applet, instance, params);
                         if (args.has(OPT_UPLOAD)) {
-                            client.upload(cap);
+                            authenticatedClient.upload(cap);
                         }
-                        fidesmoCard.deliverRecipe(client, formHandler, recipe);
+                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, recipe);
                     } else if (args.has(OPT_UNINSTALL)) {
                         String s = (String) args.valueOf(OPT_UNINSTALL);
                         Path p = Paths.get(s);
@@ -348,7 +357,7 @@ public class Main extends CommandLineInterface {
                             aid = CAPFile.fromBytes(Files.readAllBytes(p)).getPackageAID();
                         }
                         String recipe = RecipeGenerator.makeDeleteRecipe(aid);
-                        fidesmoCard.deliverRecipe(client, formHandler, recipe);
+                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, recipe);
                     }
 
                     // Can be chained
@@ -356,7 +365,7 @@ public class Main extends CommandLineInterface {
                         List<byte[]> blobs = args.valuesOf(OPT_STORE_DATA).stream().map(s -> HexUtils.stringToBin((String) s)).collect(Collectors.toList());
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET).toString());
                         String recipe = RecipeGenerator.makeStoreDataRecipe(applet, blobs);
-                        fidesmoCard.deliverRecipe(client, formHandler, recipe);
+                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, recipe);
                     }
 
                     // Can be chained
@@ -364,7 +373,7 @@ public class Main extends CommandLineInterface {
                         List<byte[]> apdus = args.valuesOf(OPT_SECURE_APDU).stream().map(s -> HexUtils.stringToBin((String) s)).collect(Collectors.toList());
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET).toString());
                         String recipe = RecipeGenerator.makeSecureTransceiveRecipe(applet, apdus);
-                        fidesmoCard.deliverRecipe(client, formHandler, recipe);
+                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, recipe);
                     }
                 }
             }
