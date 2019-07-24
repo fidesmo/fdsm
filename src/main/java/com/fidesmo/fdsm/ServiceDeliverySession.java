@@ -277,7 +277,11 @@ public class ServiceDeliverySession {
                     paymentcard.put("cardNumber", elements[0]);
                     paymentcard.put("expiryMonth", Integer.parseInt(date[0]));
                     paymentcard.put("expiryYear", Integer.parseInt(date[1]));
-                    paymentcard.put("cvv", elements[2]);
+
+                    // CVV code is optional
+                    if (elements.length > 2) {
+                        paymentcard.put("cvv", elements[2]);
+                    }
 
                     String payload = mapper.writeValueAsString(paymentcard);
 
