@@ -86,9 +86,9 @@ public class CommandLineFormHandler implements FormHandler {
             case "paymentcard":
                 System.out.println(f.getLabel() + ":");
                 do {
-                    System.out.println("Format must be \"PAN;MM/YY;CVV\"");
+                    System.out.println("Format must be \"PAN;MM/YY;CVV\" or \"PAN;MM/YY\" if no CVC doesn't apply");
                     input = Optional.ofNullable(console.readLine("> "));
-                } while (input.isPresent() && !input.get().trim().matches("^[0-9]{16};[0-1][0-9]/[0-9]{2};[0-9]{3}$"));
+                } while (input.isPresent() && !input.get().trim().matches("^[0-9]{13,19};[0-1][0-9]/[0-9]{2}(;[0-9]{3})?$"));
                 return input;
             case "date":
                 System.out.println(f.getLabel() + ":");
