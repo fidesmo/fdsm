@@ -104,7 +104,7 @@ public class CommandLineFormHandler implements FormHandler {
                 Set<String> allowed = indexes.stream().collect(Collectors.toSet());
                 String format = IntStream.range(0, options.length).mapToObj(i -> String.valueOf(i)).collect(Collectors.joining(","));
                 do {
-                    indexes.stream().forEachOrdered(i -> System.out.printf("[%s] %s\n", i, options[Integer.parseInt(i)]));
+                    indexes.stream().forEachOrdered(i -> System.out.printf("[%s] %s%n", i, options[Integer.parseInt(i)]));
                     input = Optional.ofNullable(console.readLine("> [%s] ", format));
                 } while (input.isPresent() && !allowed.contains(input.get()));
                 return input;
