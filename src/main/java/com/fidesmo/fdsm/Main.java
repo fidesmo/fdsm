@@ -22,7 +22,6 @@
 package com.fidesmo.fdsm;
 
 import apdu4j.HexUtils;
-import apdu4j.LoggingCardTerminal;
 import apdu4j.TerminalManager;
 import com.fasterxml.jackson.databind.JsonNode;
 import jnasmartcardio.Smartcardio;
@@ -216,7 +215,6 @@ public class Main extends CommandLineInterface {
                     }
                 } else {
                     // TODO As apdu4j 'Card' doesn't implement logical channels, use default TerminalFactory for getting first CARD_PRESENT terminal
-                    //terminal = TerminalManager.getByAID(Arrays.asList(FidesmoCard.FIDESMO_APP_AID.getBytes(), FidesmoCard.FIDESMO_PLATFORM_AID.getBytes()));
                     terminal = TerminalFactory.getDefault().terminals().list(CardTerminals.State.CARD_PRESENT).get(0);
                 }
 
@@ -233,7 +231,7 @@ public class Main extends CommandLineInterface {
                     } else {
                         System.out.printf("Your QA number is %s-%s%n", number.substring(0, 3), number.substring(3, 6));
                     }
-                    fidesmoCard = FidesmoCard.fakeInstance(card.getBasicChannel());
+                    fidesmoCard = FidesmoCard.fakeInstance(card, apduTrace);
 
                     FormHandler formHandler = getCommandLineFormHandler();
 
@@ -246,8 +244,7 @@ public class Main extends CommandLineInterface {
                         success();
                     }
                 }
-                //fidesmoCard = FidesmoCard.getInstance(card.getBasicChannel);
-                fidesmoCard = FidesmoCard.fakeInstance(card, apduTrace);
+                fidesmoCard = FidesmoCard.getInstance(card, apduTrace);
                 System.out.println("Using card in " + terminal.getName());
 
                 // Can be used always

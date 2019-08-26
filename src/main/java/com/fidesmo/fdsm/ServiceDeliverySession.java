@@ -79,9 +79,8 @@ public class ServiceDeliverySession {
 
     public boolean deliver(String appId, String serviceId) throws CardException, IOException, UnsupportedCallbackException {
         // Address #4
-        //JsonNode deviceInfo = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(card.getCIN()), new BigInteger(1, card.getBatchId()).toString()));
-        String cinParam = "0000A311223344";
-        String batchIdParam = "163"; //0xA3
+        String cinParam = HexUtils.bin2hex(card.getCIN());
+        String batchIdParam = new BigInteger(1, card.getBatchId()).toString();
         JsonNode deviceInfo = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, cinParam, batchIdParam));
         byte[] iin = HexUtils.decodeHexString_imp(deviceInfo.get("iin").asText());
         JsonNode capabilities = deviceInfo.get("description").get("capabilities");

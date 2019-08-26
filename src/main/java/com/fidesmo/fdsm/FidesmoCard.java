@@ -22,7 +22,6 @@
 package com.fidesmo.fdsm;
 
 import apdu4j.HexUtils;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.payneteasy.tlv.BerTag;
 import com.payneteasy.tlv.BerTlv;
 import com.payneteasy.tlv.BerTlvParser;
@@ -32,9 +31,7 @@ import pro.javacard.AID;
 import javax.security.auth.callback.UnsupportedCallbackException;
 import javax.smartcardio.*;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.net.URI;
-import java.nio.ByteBuffer;
 import java.util.*;
 
 // Represents a live, personalized Fidesmo card
@@ -114,10 +111,8 @@ public class FidesmoCard {
     }
 
     // Capabilities applet AID
-    public static final AID FIDESMO_APP_AID = AID.fromString("A000000617020002000001");
     public static final AID FIDESMO_BATCH_AID = AID.fromString("A000000617020002000002");
     public static final AID FIDESMO_PLATFORM_AID = AID.fromString("A00000061702000900010101");
-    public static final AID LS_APP_AID = AID.fromString("A000000396544300000001000B0001");
 
     private Card card;
     private CardChannel[] channels;
@@ -132,27 +127,13 @@ public class FidesmoCard {
         this.channels[channel.getChannelNumber()] = channel;
     }
 
-    public static FidesmoCard getInstance(Card card) throws CardException {
+    public static FidesmoCard getInstance(Card card, boolean apduLog) throws CardException {
         FidesmoCard fidesmoCard = new FidesmoCard(card.getBasicChannel());
+        fidesmoCard.apduLog = apduLog;
         fidesmoCard.card = card;
         if (!(fidesmoCard.detectPlatformV2() || fidesmoCard.detectPlatformV3()))
             throw new IllegalArgumentException("Did not detect a Fidesmo card!");
         return fidesmoCard;
-    }
-
-    public static FidesmoCard getInstance(CardChannel channel) throws CardException {
-        FidesmoCard card = new FidesmoCard(channel);
-        if (!(card.detectPlatformV2() || card.detectPlatformV3()))
-            throw new IllegalArgumentException("Did not detect a Fidesmo card!");
-        return card;
-    }
-
-    public static FidesmoCard fakeInstance(CardChannel channel) {
-        FidesmoCard card = new FidesmoCard(channel);
-        card.uid = new byte[7];
-        card.cin = new byte[7];
-        card.batchId = new byte[7];
-        return card;
     }
 
     public static FidesmoCard fakeInstance(Card card, boolean apduLog) {
@@ -160,9 +141,8 @@ public class FidesmoCard {
         fidesmoCard.apduLog = apduLog;
         fidesmoCard.card = card;
         fidesmoCard.uid = new byte[7];
-        //  TODO Remove hardcoded CIN and BatchId
-        fidesmoCard.cin = HexUtils.hex2bin("0000A311223344");
-        fidesmoCard.batchId = HexUtils.hex2bin("0000A3");
+        fidesmoCard.cin = new byte[7];
+        fidesmoCard.batchId = new byte[7];
         return fidesmoCard;
     }
 
