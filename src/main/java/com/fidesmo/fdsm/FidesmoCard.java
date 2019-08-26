@@ -189,13 +189,21 @@ public class FidesmoCard {
         int apduChannel = bytes[0] & 0x07;
         if (bytes[1] == 0x70 && bytes[2] == 0x00){
             //  Open logical channel
-            CardChannel newChannel = card.openLogicalChannel();
-            channels[newChannel.getChannelNumber()] = newChannel;
-            response = new ResponseAPDU(new byte[]{(byte)newChannel.getChannelNumber(), (byte)0x90, 0x00});
+            try {
+                CardChannel newChannel = card.openLogicalChannel();
+                channels[newChannel.getChannelNumber()] = newChannel;
+                response = new ResponseAPDU(new byte[]{(byte)newChannel.getChannelNumber(), (byte)0x90, 0x00});
+            } catch (CardException e){
+                response = new ResponseAPDU(new byte[]{(byte) 0x64, (byte) 0x00});
+            }
         } else if (bytes[1] == 0x70 && bytes[2] == (byte)0x80) {
             // Close logical channel
-            channels[apdu.getP2()].close();
-            response = new ResponseAPDU(new byte[]{(byte)0x90, 0x00});
+            try  {
+                channels[apdu.getP2()].close();
+                response = new ResponseAPDU(new byte[]{(byte)0x90, 0x00});
+            } catch (CardException e) {
+                response = new ResponseAPDU(new byte[]{(byte) 0x64, (byte) 0x00});
+            }
         } else {
             // Transmit through specified channel
             response = channels[apduChannel].transmit(apdu);
