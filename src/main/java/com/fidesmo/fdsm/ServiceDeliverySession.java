@@ -79,13 +79,16 @@ public class ServiceDeliverySession {
 
     public boolean deliver(String appId, String serviceId) throws CardException, IOException, UnsupportedCallbackException {
         // Address #4
-        JsonNode deviceInfo = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(card.getCIN()), new BigInteger(1, card.getBatchId()).toString()));
+        //JsonNode deviceInfo = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(card.getCIN()), new BigInteger(1, card.getBatchId()).toString()));
+        String cinParam = "0000A311223344";
+        String batchIdParam = "163"; //0xA3
+        JsonNode deviceInfo = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, cinParam, batchIdParam));
         byte[] iin = HexUtils.decodeHexString_imp(deviceInfo.get("iin").asText());
         JsonNode capabilities = deviceInfo.get("description").get("capabilities");
         int platformVersion = capabilities.get("platformVersion").asInt();
 
         // Query service parameters
-        JsonNode service = client.rpc(client.getURI(FidesmoApiClient.SERVICE_FOR_CARD_URL, appId, serviceId, HexUtils.bin2hex(card.getCIN())), null);
+        JsonNode service = client.rpc(client.getURI(FidesmoApiClient.SERVICE_FOR_CARD_URL, appId, serviceId, cinParam), null);
 
         // We do not support paid services
         if (service.has("price")) {
@@ -110,7 +113,7 @@ public class ServiceDeliverySession {
         // cardId
         ObjectNode cardId = JsonNodeFactory.instance.objectNode();
         cardId.put("iin", HexUtils.bin2hex(iin));
-        cardId.put("cin", HexUtils.bin2hex(card.getCIN()));
+        cardId.put("cin", cinParam);
         cardId.put("platformVersion", platformVersion);
         deliveryrequest.set("cardId", cardId);
 

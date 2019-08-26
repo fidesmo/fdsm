@@ -31,9 +31,7 @@ import pro.javacard.AID;
 import pro.javacard.CAPFile;
 
 import javax.crypto.Cipher;
-import javax.smartcardio.Card;
-import javax.smartcardio.CardException;
-import javax.smartcardio.CardTerminal;
+import javax.smartcardio.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -217,11 +215,14 @@ public class Main extends CommandLineInterface {
                         fail(String.format("Reader \"%s\" not found", reader));
                     }
                 } else {
-                    terminal = TerminalManager.getByAID(Arrays.asList(FidesmoCard.FIDESMO_APP_AID.getBytes(), FidesmoCard.FIDESMO_PLATFORM_AID.getBytes()));
+                    // TODO As apdu4j 'Card' doesn't implement logical channels, use default TerminalFactory for getting first CARD_PRESENT terminal
+                    //terminal = TerminalManager.getByAID(Arrays.asList(FidesmoCard.FIDESMO_APP_AID.getBytes(), FidesmoCard.FIDESMO_PLATFORM_AID.getBytes()));
+                    terminal = TerminalFactory.getDefault().terminals().list(CardTerminals.State.CARD_PRESENT).get(0);
                 }
 
                 if (apduTrace) {
-                    terminal = LoggingCardTerminal.getInstance(terminal);
+                    // TODO As apdu4j 'Card' doesn't implement logical channels, --trace-apdu doesn't instantiate now a different terminal
+                    //terminal = LoggingCardTerminal.getInstance(terminal);
                 }
                 Card card = terminal.connect("*");
                 // Allows to run with any card
@@ -245,7 +246,8 @@ public class Main extends CommandLineInterface {
                         success();
                     }
                 }
-                fidesmoCard = FidesmoCard.getInstance(card.getBasicChannel());
+                //fidesmoCard = FidesmoCard.getInstance(card.getBasicChannel);
+                fidesmoCard = FidesmoCard.fakeInstance(card, apduTrace);
                 System.out.println("Using card in " + terminal.getName());
 
                 // Can be used always
