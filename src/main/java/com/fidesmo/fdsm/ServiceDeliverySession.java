@@ -153,6 +153,7 @@ public class ServiceDeliverySession {
                     JsonNode statusNode = fetch.get("status");
 
                     DeliveryResult result = new DeliveryResult(
+                        sessionId,
                         statusNode.get("success").asBoolean(),
                         FidesmoApiClient.lamei18n(statusNode.get("message")),
                         Optional.ofNullable(FidesmoApiClient.lamei18n(statusNode.get("scriptStatus"))).filter(String::isEmpty)
@@ -419,14 +420,20 @@ public class ServiceDeliverySession {
     }
 
     public static class DeliveryResult {
+        private final String sessionId;
         private final boolean success;
         private final String message;
         private final Optional<String> scriptStatus;
 
-        public DeliveryResult(boolean success, String message, Optional<String> scriptStatus) {
+        public DeliveryResult(String sessionId, boolean success, String message, Optional<String> scriptStatus) {
+            this.sessionId = sessionId;
             this.success = success;
             this.message = message;
             this.scriptStatus = scriptStatus;
+        }
+
+        public String getSessionId() {
+            return sessionId;
         }
 
         public boolean isSuccess() {
@@ -444,8 +451,9 @@ public class ServiceDeliverySession {
         @Override
         public String toString() {
             return "DeliveryResult{" +
-                    "success=" + success +
-                    ", message=" + message +
+                    "sessionId='" + sessionId + '\'' +
+                    ", success=" + success +
+                    ", message='" + message + '\'' +
                     ", scriptStatus=" + scriptStatus +
                     '}';
         }
