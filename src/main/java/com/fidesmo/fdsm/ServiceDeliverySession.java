@@ -77,7 +77,7 @@ public class ServiceDeliverySession {
         return new ServiceDeliverySession(card, client, formHandler);
     }
 
-    public boolean deliver(String appId, String serviceId) throws CardException, IOException, UnsupportedCallbackException {
+    public DeliveryResult deliver(String appId, String serviceId) throws CardException, IOException, UnsupportedCallbackException {
         // Address #4
         JsonNode deviceInfo = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(card.getCIN()), new BigInteger(1, card.getBatchId()).toString()));
         byte[] iin = HexUtils.decodeHexString_imp(deviceInfo.get("iin").asText());
@@ -150,13 +150,21 @@ public class ServiceDeliverySession {
 
                 // Check if done
                 if (fetch.get("completed").asBoolean()) {
-                    if (fetch.get("status").get("success").asBoolean()) {
-                        logger.info("Success: " + FidesmoApiClient.lamei18n(fetch.get("status").get("message")));
-                        return true;
+                    JsonNode statusNode = fetch.get("status");
+
+                    DeliveryResult result = new DeliveryResult(
+                        statusNode.get("success").asBoolean(),
+                        FidesmoApiClient.lamei18n(statusNode.get("message")),
+                        Optional.ofNullable(FidesmoApiClient.lamei18n(statusNode.get("scriptStatus"))).filter(String::isEmpty)
+                    );
+
+                    if (result.isSuccess()) {
+                        logger.info("Success: " + result.getMessage());
                     } else {
-                        logger.info("Failure: " + FidesmoApiClient.lamei18n(fetch.get("status").get("message")));
-                        return false;
+                        logger.info("Failure: " + result.getMessage() + result.getScriptStatus().map(status -> "\nScript status: " + status).orElse(""));
                     }
+
+                    return result;
                 }
 
                 // Process operations
@@ -408,5 +416,38 @@ public class ServiceDeliverySession {
             time = (ms / 1000) + "s" + (ms % 1000) + "ms";
         }
         return time;
+    }
+
+    public static class DeliveryResult {
+        private final boolean success;
+        private final String message;
+        private final Optional<String> scriptStatus;
+
+        public DeliveryResult(boolean success, String message, Optional<String> scriptStatus) {
+            this.success = success;
+            this.message = message;
+            this.scriptStatus = scriptStatus;
+        }
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public Optional<String> getScriptStatus() {
+            return scriptStatus;
+        }
+
+        @Override
+        public String toString() {
+            return "DeliveryResult{" +
+                    "success=" + success +
+                    ", message=" + message +
+                    ", scriptStatus=" + scriptStatus +
+                    '}';
+        }
     }
 }

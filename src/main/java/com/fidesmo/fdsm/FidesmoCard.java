@@ -22,7 +22,6 @@
 package com.fidesmo.fdsm;
 
 import apdu4j.HexUtils;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.payneteasy.tlv.BerTag;
 import com.payneteasy.tlv.BerTlv;
 import com.payneteasy.tlv.BerTlvParser;
@@ -35,9 +34,7 @@ import javax.smartcardio.CardException;
 import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.net.URI;
-import java.nio.ByteBuffer;
 import java.util.*;
 
 // Represents a live, personalized Fidesmo card
@@ -121,6 +118,10 @@ public class FidesmoCard {
     public static final AID FIDESMO_BATCH_AID = AID.fromString("A000000617020002000002");
     public static final AID FIDESMO_PLATFORM_AID = AID.fromString("A00000061702000900010101");
 
+    public static final List<byte[]> FIDESMO_CARD_AIDS = Collections.unmodifiableList(Arrays.asList(
+        FIDESMO_APP_AID.getBytes(), FIDESMO_PLATFORM_AID.getBytes()
+    ));
+
     private final CardChannel channel;
     private byte[] uid = null;
     private byte[] cin = null;
@@ -169,7 +170,7 @@ public class FidesmoCard {
             Runtime.getRuntime().addShutdownHook(cleanup);
 
             try {
-                if (!session.deliver(client.getAppId(), uuid)) {
+                if (!session.deliver(client.getAppId(), uuid).isSuccess()) {
                     return false;
                 }
             } finally {
