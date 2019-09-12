@@ -118,9 +118,9 @@ public class FidesmoCard {
     public static final AID FIDESMO_BATCH_AID = AID.fromString("A000000617020002000002");
     public static final AID FIDESMO_PLATFORM_AID = AID.fromString("A00000061702000900010101");
 
-    public static final List<byte[]> FIDESMO_CARD_AIDS = Arrays.asList(
+    public static final List<byte[]> FIDESMO_CARD_AIDS = Collections.unmodifiableList(Arrays.asList(
         FIDESMO_APP_AID.getBytes(), FIDESMO_PLATFORM_AID.getBytes()
-    );
+    ));
 
     private final CardChannel channel;
     private byte[] uid = null;
