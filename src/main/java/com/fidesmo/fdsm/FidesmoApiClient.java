@@ -28,6 +28,9 @@ import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.io.IOUtils;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.HttpResponseException;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -36,6 +39,7 @@ import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.ContentType;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 
@@ -76,7 +80,6 @@ public class FidesmoApiClient {
     private final CloseableHttpClient http;
     private final HttpClientContext context = HttpClientContext.create();
     protected final String appId;
-    protected final String appKey;
     private final String apiurl;
 
     static DefaultPrettyPrinter printer = new DefaultPrettyPrinter();
@@ -98,12 +101,19 @@ public class FidesmoApiClient {
     }
 
     public FidesmoApiClient(String appId, String appKey, PrintStream apidump) {
+        CredentialsProvider credentialsProvider = null;
+
         if (appId != null && appKey != null) {
             if (HexUtils.hex2bin(appId).length != 4)
                 throw new IllegalArgumentException("appId must be 4 bytes long (8 hex characters)");
             if (HexUtils.hex2bin(appKey).length != 16)
                 throw new IllegalArgumentException("appKey must be 16 bytes long (32 hex characters)");
+
+            credentialsProvider = new BasicCredentialsProvider();
+            UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(appId, appKey);
+            credentialsProvider.setCredentials(AuthScope.ANY, credentials);
         }
+
         if (System.getenv().containsKey("FIDESMO_API_URL")) {
             String check;
             try {
@@ -116,17 +126,18 @@ public class FidesmoApiClient {
         } else {
             this.apiurl = APIv2;
         }
-        this.http = HttpClientBuilder.create().useSystemProperties().setUserAgent("fdsm/" + getVersion()).build();
+
+        this.http = HttpClientBuilder
+                .create()
+                .useSystemProperties()
+                .setDefaultCredentialsProvider(credentialsProvider)
+                .setUserAgent("fdsm/" + getVersion())
+                .build();
         this.appId = appId;
-        this.appKey = appKey;
         this.apidump = apidump;
     }
 
     public CloseableHttpResponse transmit(HttpRequestBase request) throws IOException {
-        if (appId != null && appKey != null) {
-            request.setHeader("app_id", appId);
-            request.setHeader("app_key", appKey);
-        }
         // XXX: GET/POST get handled in rpc(), this is only for PUT
         if (apidump != null && !(request.getMethod().equals("GET") || request.getMethod().equals("POST"))) {
             apidump.println(request.getMethod() + ": " + request.getURI());

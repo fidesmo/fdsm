@@ -217,7 +217,7 @@ public class Main extends CommandLineInterface {
                         fail(String.format("Reader \"%s\" not found", reader));
                     }
                 } else {
-                    terminal = TerminalManager.getByAID(Arrays.asList(FidesmoCard.FIDESMO_APP_AID.getBytes(), FidesmoCard.FIDESMO_PLATFORM_AID.getBytes()));
+                    terminal = TerminalManager.getByAID(FidesmoCard.FIDESMO_CARD_AIDS);
                 }
 
                 if (apduTrace) {
@@ -239,7 +239,7 @@ public class Main extends CommandLineInterface {
                     ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, formHandler);
                     if (args.has(OPT_TIMEOUT))
                         cardSession.setTimeout((Integer) args.valueOf(OPT_TIMEOUT));
-                    if (!cardSession.deliver(FDSM_SP, number)) {
+                    if (!cardSession.deliver(FDSM_SP, number).isSuccess()) {
                         fail("Failed to run service");
                     } else {
                         success();
@@ -303,7 +303,7 @@ public class Main extends CommandLineInterface {
                     ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, formHandler);
                     if (args.has(OPT_TIMEOUT))
                         cardSession.setTimeout((Integer) args.valueOf(OPT_TIMEOUT));
-                    if (!cardSession.deliver(appId, service)) {
+                    if (!cardSession.deliver(appId, service).isSuccess()) {
                         fail("Failed to run service");
                     } else {
                         success(); // Explicitly quit to signal successful service. Which implies only one service per invocation
