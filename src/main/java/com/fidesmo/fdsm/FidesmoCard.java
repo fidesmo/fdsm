@@ -253,8 +253,18 @@ public class FidesmoCard {
         // Select ISD
         CommandAPDU selectISD = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, 0x00);
         ResponseAPDU response = channel.transmit(selectISD);
-        if (response.getSW() != 0x9000)
-            return false;
+        if (response.getSW() == 0x9000) {
+            // Get CPLC
+            CommandAPDU getCPLC = new CommandAPDU(0x80, 0xCA, 0x9F, 0x7F, 0x00);
+            response = channel.transmit(getCPLC);
+            if (response.getSW() != 0x9000 || response.getData().length == 0)
+                return false;
+            byte[] data = response.getData();
+            // Remove tag, if present
+            if (data[0] == (byte) 0x9f && data[1] == (byte) 0x7f && data[2] == (byte) 0x2A)
+                data = Arrays.copyOfRange(data, 3, data.length);
+            cplc = data;
+        }
 
         // See if we get the UID from ACS(-compatible) readers
         // NOTE: to make sure we get a sane response if the reader does not support
@@ -265,16 +275,6 @@ public class FidesmoCard {
         if (response.getSW() == 0x9000 && response.getData().length <= 7) {
             uid = response.getData();
         }
-        // Get CPLC
-        CommandAPDU getCPLC = new CommandAPDU(0x80, 0xCA, 0x9F, 0x7F, 0x00);
-        response = channel.transmit(getCPLC);
-        if (response.getSW() != 0x9000 || response.getData().length == 0)
-            return false;
-        byte[] data = response.getData();
-        // Remove tag, if present
-        if (data[0] == (byte) 0x9f && data[1] == (byte) 0x7f && data[2] == (byte) 0x2A)
-            data = Arrays.copyOfRange(data, 3, data.length);
-        cplc = data;
 
         // Select Platform applet
         CommandAPDU selectFidesmoPlatform = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, FIDESMO_PLATFORM_AID.getBytes());
