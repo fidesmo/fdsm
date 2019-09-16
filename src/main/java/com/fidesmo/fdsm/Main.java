@@ -224,6 +224,12 @@ public class Main extends CommandLineInterface {
                     terminal = LoggingCardTerminal.getInstance(terminal);
                 }
                 Card card = terminal.connect("*");
+
+                if (args.has(OPT_FAKE) || args.has(OPT_QA)) {
+                    fidesmoCard = FidesmoCard.fakeInstance(card.getBasicChannel());
+                } else {
+                    fidesmoCard = FidesmoCard.getInstance(card.getBasicChannel());
+                }
                 // Allows to run with any card
                 if (args.has(OPT_QA)) {
                     String number = Integer.toString(new Random().nextInt(900000) + 100000).substring(0, 6);
@@ -232,8 +238,6 @@ public class Main extends CommandLineInterface {
                     } else {
                         System.out.printf("Your QA number is %s-%s%n", number.substring(0, 3), number.substring(3, 6));
                     }
-                    fidesmoCard = FidesmoCard.fakeInstance(card.getBasicChannel());
-
                     FormHandler formHandler = getCommandLineFormHandler();
 
                     ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, formHandler);
@@ -245,7 +249,6 @@ public class Main extends CommandLineInterface {
                         success();
                     }
                 }
-                fidesmoCard = FidesmoCard.getInstance(card.getBasicChannel());
                 System.out.println("Using card in " + terminal.getName());
 
                 // Can be used always

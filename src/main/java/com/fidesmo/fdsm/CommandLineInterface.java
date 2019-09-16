@@ -61,6 +61,7 @@ abstract class CommandLineInterface {
     final static String OPT_VERSION = "version";
 
     final static String OPT_QA = "qa";
+    final static String OPT_FAKE = "fake";
     final static String OPT_TIMEOUT = "timeout";
 
     protected static String appId = null;
@@ -145,6 +146,7 @@ abstract class CommandLineInterface {
         parser.accepts(OPT_VERBOSE, "Be verbose");
 
         parser.accepts(OPT_QA, "Run a QA support session").withOptionalArg().ofType(Integer.class).describedAs("QA number");
+        parser.accepts(OPT_FAKE, "Fake Fidesmo metadata");
         parser.accepts(OPT_TIMEOUT, "Timeout for services").withRequiredArg().ofType(Integer.class).describedAs("minutes");
 
         parser.acceptsAll(Arrays.asList("V", OPT_VERSION), "Show version and check for updates");
