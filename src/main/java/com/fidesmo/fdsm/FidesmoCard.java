@@ -119,7 +119,7 @@ public class FidesmoCard {
     public static final AID FIDESMO_PLATFORM_AID = AID.fromString("A00000061702000900010101");
 
     public static final List<byte[]> FIDESMO_CARD_AIDS = Collections.unmodifiableList(Arrays.asList(
-        FIDESMO_APP_AID.getBytes(), FIDESMO_PLATFORM_AID.getBytes()
+            FIDESMO_APP_AID.getBytes(), FIDESMO_PLATFORM_AID.getBytes()
     ));
 
     private final CardChannel channel;
@@ -208,15 +208,6 @@ public class FidesmoCard {
         if (response.getSW() != 0x9000)
             return false;
 
-        // See if we get the UID from ACS(-compatible) readers
-        // NOTE: to make sure we get a sane response if the reader does not support
-        // the command, ISD MUST be selected before this command
-        CommandAPDU getUID = new CommandAPDU(HexUtils.hex2bin("FFCA000000"));
-        response = channel.transmit(getUID);
-        // Sensibility check: UID size
-        if (response.getSW() == 0x9000 && response.getData().length <= 7) {
-            uid = response.getData();
-        }
         // Get CPLC
         CommandAPDU getCPLC = new CommandAPDU(0x80, 0xCA, 0x9F, 0x7F, 0x00);
         response = channel.transmit(getCPLC);
@@ -246,34 +237,32 @@ public class FidesmoCard {
         if (batchIdTag != null) {
             batchId = batchIdTag.getBytesValue();
         }
-        return true;
-    }
 
-    public boolean detectPlatformV3() throws CardException {
-        // Select ISD
-        CommandAPDU selectISD = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, 0x00);
-        ResponseAPDU response = channel.transmit(selectISD);
-        if (response.getSW() == 0x9000) {
-            // Get CPLC
-            CommandAPDU getCPLC = new CommandAPDU(0x80, 0xCA, 0x9F, 0x7F, 0x00);
-            response = channel.transmit(getCPLC);
-            if (response.getSW() != 0x9000 || response.getData().length == 0)
-                return false;
-            byte[] data = response.getData();
-            // Remove tag, if present
-            if (data[0] == (byte) 0x9f && data[1] == (byte) 0x7f && data[2] == (byte) 0x2A)
-                data = Arrays.copyOfRange(data, 3, data.length);
-            cplc = data;
-        }
-
-        // See if we get the UID from ACS(-compatible) readers
-        // NOTE: to make sure we get a sane response if the reader does not support
-        // the command, ISD MUST be selected before this command
+        // See if we get the UID from compatible readers
         CommandAPDU getUID = new CommandAPDU(HexUtils.hex2bin("FFCA000000"));
         response = channel.transmit(getUID);
         // Sensibility check: UID size
         if (response.getSW() == 0x9000 && response.getData().length <= 7) {
             uid = response.getData();
+        }
+        return true;
+    }
+
+    public boolean detectPlatformV3() throws CardException {
+        // Try to select ISD
+        CommandAPDU selectISD = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, 0x00);
+        ResponseAPDU response = channel.transmit(selectISD);
+        if (response.getSW() == 0x9000) {
+            // Get CPLC, if selection successful
+            CommandAPDU getCPLC = new CommandAPDU(0x80, 0xCA, 0x9F, 0x7F, 0x00);
+            response = channel.transmit(getCPLC);
+            if (response.getSW() == 0x9000 && response.getData().length >= 0x2a) {
+                byte[] data = response.getData();
+                // Remove tag, if present
+                if (data[0] == (byte) 0x9f && data[1] == (byte) 0x7f && data[2] == (byte) 0x2A)
+                    data = Arrays.copyOfRange(data, 3, data.length);
+                cplc = data;
+            }
         }
 
         // Select Platform applet
@@ -294,6 +283,15 @@ public class FidesmoCard {
         BerTlv cinTag = tlvs.find(new BerTag(0x45));
         if (cinTag != null) {
             cin = cinTag.getBytesValue();
+        }
+
+        // See if we get the UID from compatible readers. At this point platform applet is selected
+        // so we know that we get the response from the reader, if at all
+        CommandAPDU getUID = new CommandAPDU(HexUtils.hex2bin("FFCA000000"));
+        response = channel.transmit(getUID);
+        // Sensibility check: UID size
+        if (response.getSW() == 0x9000 && response.getData().length <= 7) {
+            uid = response.getData();
         }
 
         return true;
