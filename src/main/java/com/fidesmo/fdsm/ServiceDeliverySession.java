@@ -43,6 +43,7 @@ import javax.smartcardio.CardException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.Key;
@@ -144,7 +145,7 @@ public class ServiceDeliverySession {
         // Now loop getting the operations
         while (true) {
             try {
-                JsonNode fetch = client.rpc(client.getURI(FidesmoApiClient.SERVICE_FETCH_URL), fetchrequest);
+                JsonNode fetch = rpcWithRetry(client.getURI(FidesmoApiClient.SERVICE_FETCH_URL), fetchrequest, 5);
                 // Successful fetch extends timeout
                 lastActivity = System.currentTimeMillis();
 
@@ -201,6 +202,7 @@ public class ServiceDeliverySession {
         transmitrequest.set("uuid", operationId);
         transmitrequest.put("open", true);
         transmitrequest.putArray("responses"); // Empty, to signal "start sending"
+
         while (true) {
             JsonNode transmit = client.rpc(client.getURI(FidesmoApiClient.CONNECTOR_URL), transmitrequest);
             JsonNode commands = transmit.get("commands");
@@ -228,6 +230,28 @@ public class ServiceDeliverySession {
 
         // Send an empty fetch request when APDU-s are done
         return emptyFetchRequest(sessionId);
+    }
+
+    /**
+     * Used for service/fetch endpoint where an empty result means that client needs to retry fetching later.
+     */
+    private JsonNode rpcWithRetry(URI uri, JsonNode request, int retries) throws IOException {
+        JsonNode node = client.rpc(uri, request);
+
+        if (node != null) {
+            return node;
+        } else if (retries > 0) {
+            // response is not ready, retry after timeout
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException iex) {
+                throw new IOException("Thread was interrupted", iex);
+            }
+
+            return rpcWithRetry(uri, request, retries - 1);
+        } else {
+            throw new IOException("Unable to fetch request after all retries");
+        }
     }
 
     protected ObjectNode processUIOperation(JsonNode operation, String sessionId, JsonNode service) throws IOException {
