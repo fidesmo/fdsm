@@ -299,15 +299,28 @@ public class FidesmoCard {
         return true;
     }
 
-    // Remove the trailing 0x00 if the format is not TLV
+    private boolean valid(byte[] v) {
+        try {
+            BerTlvParser parser = new BerTlvParser();
+            parser.parse(v);
+            return true;
+        } catch (RuntimeException e) {
+        }
+        return false;
+    }
+
+    // Fix various known issues
     private byte[] fixup(byte[] v) {
-        if (v.length > 0 && v[v.length - 1] == 0x00) {
-            try {
-                BerTlvParser parser = new BerTlvParser();
-                parser.parse(v);
-                return v;
-            } catch (ArrayIndexOutOfBoundsException e) {
+        if (!valid(v)) {
+            // trailing 0x00; remove
+            if (v.length > 0 && v[v.length - 1] == 0x00 && valid(Arrays.copyOf(v, v.length - 1))) {
                 return Arrays.copyOf(v, v.length - 1);
+            }
+            // incorrect payload and payload length; fix length
+            if (v.length == 16 && v[0] == 0x42 && v[1] == 0x03 && v[5] == 0x43 && v[6] == 0x06) {
+                byte[] r = v.clone();
+                v[6] = 0x05;
+                if (valid(r)) return r;
             }
         }
         return v;
