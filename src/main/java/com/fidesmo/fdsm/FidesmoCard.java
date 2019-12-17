@@ -240,12 +240,13 @@ public class FidesmoCard {
         response = channel.transmit(selectFidesmoBatch);
         if (response.getSW() != 0x9000)
             return false;
-        BerTlvParser parser = new BerTlvParser();
-        BerTlvs tlvs = parser.parse(fixup(response.getData()));
-        BerTlv batchIdTag = tlvs.find(new BerTag(0x42));
+
+        BerTlv batchIdTag = findTagSafe(new BerTag(0x42), response.getData());
+
         if (batchIdTag != null) {
             batchId = batchIdTag.getBytesValue();
         }
+
         return true;
     }
 
@@ -345,6 +346,51 @@ public class FidesmoCard {
                 return aid.getBytesValue();
             }
         }
+        return null;
+    }
+
+    /**
+     * A safer version of BerTlvParser.parse() that parses only tags up to the required one,
+     * ignoring the rest of the response. Some responses have wrong TLVs at the end, but the required
+     * information still can be obtained.
+     *
+     * @param tag tag to find
+     * @param bytes array of TLVs
+     * @return found tag or null.
+     */
+    private BerTlv findTagSafe(BerTag tag, byte[] bytes) {
+        int offset = 0;
+        int len = bytes.length;
+
+        while(offset < len) {
+            try {
+                BerTlv result = new BerTlvParser().parseConstructed(bytes, offset, len - offset);
+
+                if (result.isTag(tag)) {
+                    return result;
+                }
+
+                int dataLen = result.getBytesValue().length;
+
+                int lenBytes;
+
+                if (dataLen < 0x80) {
+                    lenBytes = 1;
+                } else if (dataLen < 0x100) {
+                    lenBytes = 2;
+                } else if(dataLen < 0x10000) {
+                    lenBytes = 3;
+                } else {
+                    lenBytes = 4;
+                }
+
+                offset +=  result.getTag().bytes.length + lenBytes + dataLen;
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                return null;
+            }
+        }
+
         return null;
     }
 }
