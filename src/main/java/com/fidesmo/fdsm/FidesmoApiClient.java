@@ -165,10 +165,6 @@ public class FidesmoApiClient {
     }
 
     public JsonNode rpc(URI uri, JsonNode request) throws IOException {
-        return rpc(uri, request, 5);
-    }
-
-    public JsonNode rpc(URI uri, JsonNode request, int retries) throws IOException {
         final HttpRequestBase req;
         if (request != null) {
             HttpPost post = new HttpPost(uri);
@@ -189,14 +185,9 @@ public class FidesmoApiClient {
         req.setHeader("Content-type", ContentType.APPLICATION_JSON.toString());
 
         try (CloseableHttpResponse response = transmit(req)) {
-            if (response.getStatusLine().getStatusCode() == 204 && retries > 0) {
-                // response is not ready, retry after timeout
-                try {
-                    Thread.sleep(500);
-                } catch (InterruptedException iex) {
-                    throw new IOException("Thread was interrupted", iex);
-                }
-                return rpc(uri, request, retries - 1);
+            if (response.getStatusLine().getStatusCode() == 204) {
+                // Empty response
+                return null;
             } else {
                 JsonNode json = mapper.readTree(response.getEntity().getContent());
                 if (apidump != null) {
