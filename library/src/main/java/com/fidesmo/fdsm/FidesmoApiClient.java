@@ -57,7 +57,7 @@ public class FidesmoApiClient {
     public static final String APIv2 = "https://api.fidesmo.com/v2/";
 
     // This looks as nice here as it looks in the API
-    public static final String APPS_URL = "apps" + (Main.isDeveloperMode() ? "?development=true" : "");
+    public static final String APPS_URL = "apps" + (isDeveloperMode() ? "?development=true" : "");
     public static final String APP_INFO_URL = "apps/%s";
     public static final String APP_SERVICES_URL = "apps/%s/services";
 
@@ -241,5 +241,9 @@ public class FidesmoApiClient {
         } else {
             return n.asText();
         }
+    }
+
+    public static boolean isDeveloperMode() {
+        return System.getenv().getOrDefault("FIDESMO_DEVELOPER", "false").equalsIgnoreCase("true");
     }
 }

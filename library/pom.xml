@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.fidesmo</groupId>
+        <artifactId>fdsm-toolbox</artifactId>
+        <version>20.01.09</version>
+    </parent>
+
+    <artifactId>fdsm</artifactId>
+    <name>FDSM library</name>
+
+
+    <!-- Build information -->
+    <dependencies>
+        <!-- CAP parsing -->
+        <dependency>
+            <groupId>com.github.martinpaljak</groupId>
+            <artifactId>capfile</artifactId>
+            <version>18.09.25.1</version>
+        </dependency>
+        <!-- Card reader access -->
+        <dependency>
+            <groupId>com.github.martinpaljak</groupId>
+            <artifactId>apdu4j-core</artifactId>
+            <version>2020b1</version>
+        </dependency>
+        <!-- API access: HTTP -->
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>4.5.10</version>
+        </dependency>
+        <!-- API access: JSON -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.10.2</version>
+        </dependency>
+        <!-- Util -->
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.6</version>
+        </dependency>
+        <!-- Logging -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.7.30</version>
+        </dependency>
+        <!-- Parsing GlobalPlatform response TLV -->
+        <dependency>
+            <groupId>com.payneteasy</groupId>
+            <artifactId>ber-tlv</artifactId>
+            <version>1.0-10</version>
+        </dependency>
+        <!-- Test dependencies -->
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>7.0.0</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

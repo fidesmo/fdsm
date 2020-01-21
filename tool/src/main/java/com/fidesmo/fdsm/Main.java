@@ -22,8 +22,8 @@
 package com.fidesmo.fdsm;
 
 import apdu4j.HexUtils;
-import apdu4j.LoggingCardTerminal;
 import apdu4j.TerminalManager;
+import apdu4j.terminals.LoggingCardTerminal;
 import com.fasterxml.jackson.databind.JsonNode;
 import jnasmartcardio.Smartcardio;
 import org.apache.http.client.HttpResponseException;
@@ -208,7 +208,7 @@ public class Main extends CommandLineInterface {
                 CardTerminal terminal = null;
                 if (args.has(OPT_READER)) {
                     String reader = args.valueOf(OPT_READER).toString();
-                    for (CardTerminal t : TerminalManager.getTerminalFactory(null).terminals().list()) {
+                    for (CardTerminal t : TerminalManager.getTerminalFactory().terminals().list()) {
                         if (t.getName().toLowerCase().contains(reader.toLowerCase())) {
                             terminal = t;
                         }
@@ -217,7 +217,10 @@ public class Main extends CommandLineInterface {
                         fail(String.format("Reader \"%s\" not found", reader));
                     }
                 } else {
-                    terminal = TerminalManager.getByAID(FidesmoCard.FIDESMO_CARD_AIDS);
+                    List<CardTerminal> candidates = TerminalManager.byAID(FidesmoCard.FIDESMO_CARD_AIDS);
+                    if (candidates.size() != 1)
+                        throw new CardException("Could not find a single Fidesmo card; must use --reader");
+                    terminal = candidates.get(0);
                 }
 
                 if (apduTrace) {
@@ -258,7 +261,7 @@ public class Main extends CommandLineInterface {
                             HexUtils.bin2hex(fidesmoCard.getBatchId()),
                             fidesmoCard.getUID().map(i -> HexUtils.bin2hex(i)).orElse("N/A"));
                     if (!args.has(OPT_OFFLINE)) {
-                        boolean showIIN = isDeveloperMode() || args.has(OPT_VERBOSE);
+                        boolean showIIN = FidesmoApiClient.isDeveloperMode() || args.has(OPT_VERBOSE);
                         JsonNode device = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(fidesmoCard.getCIN()), new BigInteger(1, fidesmoCard.getBatchId()).toString()));
                         byte[] iin = HexUtils.decodeHexString_imp(device.get("iin").asText());
                         // Read capabilities
@@ -403,9 +406,7 @@ public class Main extends CommandLineInterface {
         }
     }
 
-    static boolean isDeveloperMode() {
-        return System.getenv().getOrDefault("FIDESMO_DEVELOPER", "false").equalsIgnoreCase("true");
-    }
+
 
     private static String printableCIN(byte[] cin) {
         return String.format("%s-%s", HexUtils.bin2hex(Arrays.copyOfRange(cin, 0, 3)), HexUtils.bin2hex(Arrays.copyOfRange(cin, 3, 7)));
