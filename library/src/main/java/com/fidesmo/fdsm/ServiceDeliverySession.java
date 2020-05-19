@@ -52,6 +52,10 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.MGF1ParameterSpec;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 // Delivers a service to a card
 public class ServiceDeliverySession {
@@ -62,6 +66,8 @@ public class ServiceDeliverySession {
     private final FidesmoCard card;
     private final FormHandler formHandler;
     private final ObjectMapper mapper = new ObjectMapper();
+    private final AtomicReference<String> cancelDeliveryWithMessage = new AtomicReference<>(null);
+    private final Lock lock = new ReentrantLock();
 
     private ServiceDeliverySession(FidesmoCard card, FidesmoApiClient client, FormHandler formHandler) {
         this.card = card;
@@ -94,19 +100,28 @@ public class ServiceDeliverySession {
         }
 
         JsonNode description = service.get("description");
-        // Nod do we do BankID
-        if (description.has("bankIdRequired") && description.get("bankIdRequired").asBoolean()) {
-            throw new NotSupportedException("Services requiring BankID are not supported by fdsm. Please use the Android app!");
+
+        // Extract SP public key
+        final Optional<PublicKey> spKey;
+        if (description.has("certificate")) {
+            try {
+                CertificateFactory cf = CertificateFactory.getInstance("X509");
+                X509Certificate cert = (X509Certificate) cf.generateCertificate(
+                    new ByteArrayInputStream(HexUtils.hex2bin(description.get("certificate").asText()))
+                );
+                spKey = Optional.of(cert.getPublicKey());
+            } catch (GeneralSecurityException e) {
+                throw new IOException("Could not extract public key of service provider", e);
+            }
+        } else {
+            spKey = Optional.empty();
         }
 
-        // Construct deliveryrequest
+        // Construct Delivery Request
         ObjectNode deliveryrequest = JsonNodeFactory.instance.objectNode();
 
         deliveryrequest.put("appId", appId);
         deliveryrequest.put("serviceId", serviceId);
-
-        // Service description. Echoed verbatim
-        deliveryrequest.set("description", description);
 
         // cardId
         ObjectNode cardId = JsonNodeFactory.instance.objectNode();
@@ -131,19 +146,46 @@ public class ServiceDeliverySession {
 
         deliveryrequest.set("fields", mapToJsonNode(userInput));
 
-        // Capabilities, (re-use received object when requesting device info)
-        deliveryrequest.set("capabilities", capabilities);
-
         JsonNode delivery = client.rpc(client.getURI(FidesmoApiClient.SERVICE_DELIVER_URL), deliveryrequest);
         String sessionId = delivery.get("sessionId").asText();
+
         logger.info("Delivering: {}", FidesmoApiClient.lamei18n(description.get("title")));
         logger.info("Session ID: {}", sessionId);
 
+        lock.lock();
+        try {
+            return deliveryLoop(sessionId, spKey);
+        } catch (Exception e) {
+            notifyDeliveryFailure(sessionId, e.getMessage());
+            // And escalate the exception to caller as well.
+            throw e;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void cancel(String message) {
+        cancelDeliveryWithMessage.set(message);
+
+        // Acquiring the lock means that delivery process stopped
+        // In cases it's stuck (in UI for instance) we timeout
+        try {
+            boolean locked = lock.tryLock(5, TimeUnit.SECONDS);
+            if (locked) lock.unlock();
+        } catch (InterruptedException ignored) {
+        } finally {
+            cancelDeliveryWithMessage.set(null);
+        }
+    }
+
+    protected DeliveryResult deliveryLoop(String sessionId, Optional<PublicKey> spKey) throws IOException, CardException, UnsupportedCallbackException {
         ObjectNode fetchrequest = emptyFetchRequest(sessionId);
         long lastActivity = System.currentTimeMillis();
 
         // Now loop getting the operations
         while (true) {
+            deliveryInterruptionPoint();
+
             try {
                 JsonNode fetch = rpcWithRetry(client.getURI(FidesmoApiClient.SERVICE_FETCH_URL), fetchrequest, 5);
                 // Successful fetch extends timeout
@@ -154,10 +196,10 @@ public class ServiceDeliverySession {
                     JsonNode statusNode = fetch.get("status");
 
                     DeliveryResult result = new DeliveryResult(
-                        sessionId,
-                        statusNode.get("success").asBoolean(),
-                        FidesmoApiClient.lamei18n(statusNode.get("message")),
-                        Optional.ofNullable(FidesmoApiClient.lamei18n(statusNode.get("scriptStatus"))).filter(String::isEmpty)
+                            sessionId,
+                            statusNode.get("success").asBoolean(),
+                            FidesmoApiClient.lamei18n(statusNode.get("message")),
+                            Optional.ofNullable(FidesmoApiClient.lamei18n(statusNode.get("scriptStatus"))).filter(String::isEmpty)
                     );
 
                     if (result.isSuccess()) {
@@ -176,7 +218,7 @@ public class ServiceDeliverySession {
                         fetchrequest = processTransmitOperation(fetch.get("operationId"), sessionId);
                         break;
                     case "user-interaction":
-                        fetchrequest = processUIOperation(fetch, sessionId, description);
+                        fetchrequest = processUIOperation(fetch, sessionId, spKey);
                         break;
                     case "action":
                         fetchrequest = processUserAction(fetch, sessionId);
@@ -209,19 +251,12 @@ public class ServiceDeliverySession {
             // Check if there are commands
             if (commands.size() > 0) {
                 ArrayList<String> responses = new ArrayList<>();
-                try {
-                    for (JsonNode cmd : commands) {
-                        responses.add(HexUtils.bin2hex(card.transmit(HexUtils.hex2bin(cmd.asText()))));
-                    }
-                } catch (CardException e) {
-                    // Indicate error to Fidesmo API
-                    ObjectNode transmiterror = JsonNodeFactory.instance.objectNode();
-                    transmiterror.set("uuid", operationId);
-                    transmiterror.put("reason", e.getMessage());
-                    client.rpc(client.getURI(FidesmoApiClient.CONNECTOR_ERROR_URL), transmiterror);
-                    // And escalate the exception to caller as well.
-                    throw e;
+
+                for (JsonNode cmd : commands) {
+                    deliveryInterruptionPoint();
+                    responses.add(HexUtils.bin2hex(card.transmit(HexUtils.hex2bin(cmd.asText()))));
                 }
+                
                 transmitrequest.set("responses", mapper.valueToTree(responses));
             } else {
                 break;
@@ -254,24 +289,10 @@ public class ServiceDeliverySession {
         }
     }
 
-    protected ObjectNode processUIOperation(JsonNode operation, String sessionId, JsonNode service) throws IOException {
-        // Extract SP public key
-        final PublicKey spkey;
-        if (service.has("certificate")) {
-            try {
-                CertificateFactory cf = CertificateFactory.getInstance("X509");
-                X509Certificate cert = (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(HexUtils.hex2bin(service.get("certificate").asText())));
-                spkey = cert.getPublicKey();
-            } catch (GeneralSecurityException e) {
-                throw new IOException("Could not extract public key of service provider", e);
-            }
-        } else {
-            spkey = null;
-        }
-
+    protected ObjectNode processUIOperation(JsonNode operation, String sessionId, final Optional<PublicKey> spKey) throws IOException {
         // Check for encryption
         boolean encrypted = operation.has("encrypted") && operation.get("encrypted").asBoolean();
-        if (encrypted && spkey == null) {
+        if (encrypted && !spKey.isPresent()) {
             throw new IOException("Invalid request: encryption required but no public key available!");
         }
 
@@ -288,7 +309,6 @@ public class ServiceDeliverySession {
         // Send fields, encrypting as needed
         ObjectNode values = JsonNodeFactory.instance.objectNode();
 
-
         try {
             // Generate session key
             final Key sessionKey;
@@ -298,6 +318,8 @@ public class ServiceDeliverySession {
 
             // From map to JSON, encrypting or expanding as needed
             for (Map.Entry<String, Field> v : responses.entrySet()) {
+                deliveryInterruptionPoint();
+
                 String value;
 
                 // special handling for PAN
@@ -338,7 +360,7 @@ public class ServiceDeliverySession {
             operationResult.put("statusCode", 200);
 
             if (encrypted) {
-                operationResult.put("ephemeralKey", HexUtils.bin2hex(encryptSessionKey(spkey, sessionKey)));
+                operationResult.put("ephemeralKey", HexUtils.bin2hex(encryptSessionKey(spKey.get(), sessionKey)));
             }
         } catch (GeneralSecurityException e) {
             throw new IOException("Could not handle response encryption", e);
@@ -355,6 +377,7 @@ public class ServiceDeliverySession {
 
         JsonNode commands = operation.get("actions");
         for (JsonNode cmd : commands) {
+            deliveryInterruptionPoint();
             String action = cmd.get("name").asText();
             switch (action) {
                 case "phonecall":
@@ -364,7 +387,9 @@ public class ServiceDeliverySession {
                     formHandler.handle(new Callback[]{cb1, cb2, cb3});
                     break;
                 default:
-                    throw new NotSupportedException("Unknown action: " + cmd);
+                    TextOutputCallback genCb1 = new TextOutputCallback(TextOutputCallback.INFORMATION, FidesmoApiClient.lamei18n(cmd.get("description")));
+                    TextInputCallback genCb2 = new TextInputCallback("Press ENTER to continue"); // XXX: a bit tied to the implementation
+                    formHandler.handle(new Callback[]{genCb1, genCb2});
             }
         }
 
@@ -374,6 +399,13 @@ public class ServiceDeliverySession {
         operationResult.set("operationId", operation.get("operationId"));
         fetchRequest.set("operationResult", operationResult);
         return fetchRequest;
+    }
+
+    protected void notifyDeliveryFailure(String sessionId, String message) throws IOException {
+        ObjectNode deliveryError = JsonNodeFactory.instance.objectNode();
+        deliveryError.put("sessionId", sessionId);
+        deliveryError.put("message", message);
+        client.rpc(client.getURI(FidesmoApiClient.SERVICE_DELIVERY_ERROR_URL), deliveryError);
     }
 
     private byte[] encrypt(String value, Key key) throws GeneralSecurityException {
@@ -441,6 +473,14 @@ public class ServiceDeliverySession {
             time = (ms / 1000) + "s" + (ms % 1000) + "ms";
         }
         return time;
+    }
+
+    protected void deliveryInterruptionPoint() {
+        String message = cancelDeliveryWithMessage.get();
+        if (message != null) {
+            logger.info("Delivery interrupted");
+            throw new UserCancelledException(message);
+        }
     }
 
     public static class DeliveryResult {

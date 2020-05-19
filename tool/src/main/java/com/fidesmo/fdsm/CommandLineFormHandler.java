@@ -43,28 +43,21 @@ public class CommandLineFormHandler implements FormHandler {
 
         Map<String, Field> results = new HashMap<>();
 
-        Thread cleanup = new Thread(() -> {
-            System.err.println("\nCtrl-C received, shutting down");
-        });
-        Runtime.getRuntime().addShutdownHook(cleanup);
-        try {
-            for (Field field : form) {
-                // Display-only fields
-                if ("text".equals(field.getType()) || "image".equals(field.getType())) {
-                    System.out.println(field.getLabel());
-                    continue;
-                }
-                // Value fields
-                if (predefinedFields.containsKey(field.getId())) {
-                    field.setValue(predefinedFields.get(field.getId()));
-                } else {
-                    field.setValue(askForField(field).orElseThrow(() -> new UserCancelledException("User cancelled input")));
-                }
-                results.put(field.getId(), field);
+        for (Field field : form) {
+            // Display-only fields
+            if ("text".equals(field.getType()) || "image".equals(field.getType())) {
+                System.out.println(field.getLabel());
+                continue;
             }
-        } finally {
-            Runtime.getRuntime().removeShutdownHook(cleanup);
+            // Value fields
+            if (predefinedFields.containsKey(field.getId())) {
+                field.setValue(predefinedFields.get(field.getId()));
+            } else {
+                field.setValue(askForField(field).orElseThrow(() -> new UserCancelledException("User cancelled input")));
+            }
+            results.put(field.getId(), field);
         }
+
         return results;
     }
 

@@ -71,9 +71,9 @@ public class FidesmoApiClient {
 
     public static final String SERVICE_DELIVER_URL = "service/deliver";
     public static final String SERVICE_FETCH_URL = "service/fetch";
+    public static final String SERVICE_DELIVERY_ERROR_URL = "service/error";
 
     public static final String CONNECTOR_URL = "connector/json";
-    public static final String CONNECTOR_ERROR_URL = "connector/error";
 
     public static final String DEVICES_URL = "devices/%s?batchId=%s";
 

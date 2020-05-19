@@ -31,6 +31,7 @@ import pro.javacard.AID;
 import pro.javacard.CAPFile;
 
 import javax.crypto.Cipher;
+import javax.security.auth.callback.UnsupportedCallbackException;
 import javax.smartcardio.Card;
 import javax.smartcardio.CardException;
 import javax.smartcardio.CardTerminal;
@@ -244,9 +245,11 @@ public class Main extends CommandLineInterface {
                     FormHandler formHandler = getCommandLineFormHandler();
 
                     ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, formHandler);
+
                     if (args.has(OPT_TIMEOUT))
                         cardSession.setTimeout((Integer) args.valueOf(OPT_TIMEOUT));
-                    if (!cardSession.deliver(FDSM_SP, number).isSuccess()) {
+
+                    if (!deliverService(cardSession, FDSM_SP, number).isSuccess()) {
                         fail("Failed to run service");
                     } else {
                         success();
@@ -306,10 +309,14 @@ public class Main extends CommandLineInterface {
                     if (appId == null) {
                         fail("Need Application ID");
                     }
-                    ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, formHandler);
+                    final ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, formHandler);
+
                     if (args.has(OPT_TIMEOUT))
                         cardSession.setTimeout((Integer) args.valueOf(OPT_TIMEOUT));
-                    if (!cardSession.deliver(appId, service).isSuccess()) {
+                    
+                    ServiceDeliverySession.DeliveryResult result = deliverService(cardSession, appId, service);
+
+                    if (!result.isSuccess()) {
                         fail("Failed to run service");
                     } else {
                         success(); // Explicitly quit to signal successful service. Which implies only one service per invocation
@@ -406,7 +413,25 @@ public class Main extends CommandLineInterface {
         }
     }
 
+    private static ServiceDeliverySession.DeliveryResult deliverService(ServiceDeliverySession cardSession, String appId, String service)
+            throws UnsupportedCallbackException, IOException, CardException {
 
+        Thread cleanup = new Thread(() -> {
+            System.err.println("\nCtrl-C received, canceling delivery");
+            cardSession.cancel("User cancelled");
+        });
+
+        Runtime.getRuntime().addShutdownHook(cleanup);
+
+        try {
+            return cardSession.deliver(appId, service);
+        } finally {
+            // It's fine to fail to remove the hook if shutdown is already in progress
+            try {
+                Runtime.getRuntime().removeShutdownHook(cleanup);
+            } catch (IllegalStateException ignored) {}
+        }
+    }
 
     private static String printableCIN(byte[] cin) {
         return String.format("%s-%s", HexUtils.bin2hex(Arrays.copyOfRange(cin, 0, 3)), HexUtils.bin2hex(Arrays.copyOfRange(cin, 3, 7)));
