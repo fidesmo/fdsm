@@ -405,6 +405,7 @@ public class ServiceDeliverySession {
         ObjectNode deliveryError = JsonNodeFactory.instance.objectNode();
         deliveryError.put("sessionId", sessionId);
         deliveryError.put("message", message);
+        deliveryError.put("fatal", true);
         client.rpc(client.getURI(FidesmoApiClient.SERVICE_DELIVERY_ERROR_URL), deliveryError);
     }
 
