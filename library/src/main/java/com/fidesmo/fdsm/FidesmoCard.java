@@ -26,6 +26,8 @@ import com.payneteasy.tlv.BerTag;
 import com.payneteasy.tlv.BerTlv;
 import com.payneteasy.tlv.BerTlvParser;
 import com.payneteasy.tlv.BerTlvs;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import pro.javacard.AID;
 
 import javax.security.auth.callback.UnsupportedCallbackException;
@@ -39,6 +41,8 @@ import java.util.*;
 
 // Represents a live, personalized Fidesmo card
 public class FidesmoCard {
+    private final static Logger logger = LoggerFactory.getLogger(FidesmoCard.class);
+
     public enum ChipPlatform {
 
         UNKNOWN(0),
@@ -119,7 +123,7 @@ public class FidesmoCard {
     public static final AID FIDESMO_PLATFORM_AID = AID.fromString("A00000061702000900010101");
 
     public static final List<byte[]> FIDESMO_CARD_AIDS = Collections.unmodifiableList(Arrays.asList(
-        FIDESMO_APP_AID.getBytes(), FIDESMO_PLATFORM_AID.getBytes()
+            FIDESMO_APP_AID.getBytes(), FIDESMO_PLATFORM_AID.getBytes()
     ));
 
     private final CardChannel channel;
@@ -152,30 +156,25 @@ public class FidesmoCard {
     }
 
     public boolean deliverRecipes(AuthenticatedFidesmoApiClient client, FormHandler formHandler, List<String> recipes) throws CardException, IOException, UnsupportedCallbackException {
-        ServiceDeliverySession session = ServiceDeliverySession.getInstance(this, client, formHandler);
-
         for (String recipe : recipes) {
-            String uuid = UUID.randomUUID().toString();
+            final String uuid = UUID.randomUUID().toString();
+
             URI uri = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, client.getAppId(), uuid);
             client.put(uri, recipe);
-            // When Ctrl-C is pressed from the command line, try not to leave behind stale recipes
-            Thread cleanup = new Thread(() -> {
+
+            ServiceDeliverySession session = ServiceDeliverySession.getInstance(this, client, client.getAppId(), uuid, formHandler);
+
+            // Remove
+            session.cleanups.add(() -> {
                 try {
-                    System.out.println("Ctrl-C received, removing temporary recipe ...");
+                    logger.info("Removing temporary recipe {} ...", uuid);
                     client.delete(uri);
                 } catch (IOException e) {
-                    System.err.println("Failed to remove temporary recipe");
+                    logger.warn("Failed to remove temporary recipe {}", uuid);
                 }
             });
-            Runtime.getRuntime().addShutdownHook(cleanup);
-
-            try {
-                if (!session.deliver(client.getAppId(), uuid).isSuccess()) {
-                    return false;
-                }
-            } finally {
-                client.delete(uri);
-                Runtime.getRuntime().removeShutdownHook(cleanup);
+            if (!session.get().isSuccess()) {
+                return false;
             }
         }
         return true;

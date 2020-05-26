@@ -52,27 +52,34 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.MGF1ParameterSpec;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
 // Delivers a service to a card
-public class ServiceDeliverySession {
+public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.DeliveryResult> {
     private final static Logger logger = LoggerFactory.getLogger(ServiceDeliverySession.class);
     private final static long SESSION_TIMEOUT_MINUTES = 15;
     private long sessionTimeout;
     private final FidesmoApiClient client;
     private final FidesmoCard card;
     private final FormHandler formHandler;
+    private final String appId;
+    private final String serviceId;
     private final ObjectMapper mapper = new ObjectMapper();
-    private final AtomicReference<String> cancelDeliveryWithMessage = new AtomicReference<>(null);
-    private final Lock lock = new ReentrantLock();
+    // For cancelation and threading and cleanup
+    private final AtomicReference<String> cancelDeliveryWithMessage = new AtomicReference<>("Delivery cancelled");
+    private volatile Thread runner = null;
+    private final CountDownLatch latch = new CountDownLatch(1);
+    final ArrayList<Runnable> cleanups = new ArrayList<>();
 
-    private ServiceDeliverySession(FidesmoCard card, FidesmoApiClient client, FormHandler formHandler) {
+    private ServiceDeliverySession(FidesmoCard card, FidesmoApiClient client, String appId, String serviceId, FormHandler formHandler) {
         this.card = card;
         this.client = client;
         this.formHandler = formHandler;
+        this.appId = appId;
+        this.serviceId = serviceId;
         setTimeout(SESSION_TIMEOUT_MINUTES);
     }
 
@@ -80,10 +87,28 @@ public class ServiceDeliverySession {
         sessionTimeout = minutes * 60 * 1000;
     }
 
-    public static ServiceDeliverySession getInstance(FidesmoCard card, FidesmoApiClient client, FormHandler formHandler) {
-        return new ServiceDeliverySession(card, client, formHandler);
+    public static ServiceDeliverySession getInstance(FidesmoCard card, FidesmoApiClient client, String appId, String serviceId, FormHandler formHandler) {
+        return new ServiceDeliverySession(card, client, appId, serviceId, formHandler);
     }
 
+    @Override
+    @SuppressWarnings("deprecation")
+    public DeliveryResult get() throws FDSMException {
+        runner = Thread.currentThread();
+        try {
+            return deliver(appId, serviceId);
+        } catch (IOException | CardException | UnsupportedCallbackException e) {
+            throw new FDSMException(e.getMessage());
+        } finally {
+            // Do any cleanups. We run themere here
+            for (Runnable r : cleanups)
+                r.run();
+            // Delivery done
+            latch.countDown();
+        }
+    }
+
+    @Deprecated
     public DeliveryResult deliver(String appId, String serviceId) throws CardException, IOException, UnsupportedCallbackException {
         // Address #4
         JsonNode deviceInfo = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(card.getCIN()), new BigInteger(1, card.getBatchId()).toString()));
@@ -107,7 +132,7 @@ public class ServiceDeliverySession {
             try {
                 CertificateFactory cf = CertificateFactory.getInstance("X509");
                 X509Certificate cert = (X509Certificate) cf.generateCertificate(
-                    new ByteArrayInputStream(HexUtils.hex2bin(description.get("certificate").asText()))
+                        new ByteArrayInputStream(HexUtils.hex2bin(description.get("certificate").asText()))
                 );
                 spKey = Optional.of(cert.getPublicKey());
             } catch (GeneralSecurityException e) {
@@ -152,30 +177,24 @@ public class ServiceDeliverySession {
         logger.info("Delivering: {}", FidesmoApiClient.lamei18n(description.get("title")));
         logger.info("Session ID: {}", sessionId);
 
-        lock.lock();
         try {
             return deliveryLoop(sessionId, spKey);
         } catch (Exception e) {
             notifyDeliveryFailure(sessionId, e.getMessage());
             // And escalate the exception to caller as well.
             throw e;
-        } finally {
-            lock.unlock();
         }
     }
 
-    public void cancel(String message) {
-        cancelDeliveryWithMessage.set(message);
+    public boolean await(long timeout, TimeUnit unit) throws InterruptedException {
+        return latch.await(timeout, unit);
+    }
 
-        // Acquiring the lock means that delivery process stopped
-        // In cases it's stuck (in UI for instance) we timeout
-        try {
-            boolean locked = lock.tryLock(5, TimeUnit.SECONDS);
-            if (locked) lock.unlock();
-        } catch (InterruptedException ignored) {
-        } finally {
-            cancelDeliveryWithMessage.set(null);
-        }
+    public void cancel(String message) {
+        if (runner == null)
+            throw new IllegalStateException("Delivery not started!");
+        cancelDeliveryWithMessage.set(message);
+        runner.interrupt();
     }
 
     protected DeliveryResult deliveryLoop(String sessionId, Optional<PublicKey> spKey) throws IOException, CardException, UnsupportedCallbackException {
@@ -256,7 +275,7 @@ public class ServiceDeliverySession {
                     deliveryInterruptionPoint();
                     responses.add(HexUtils.bin2hex(card.transmit(HexUtils.hex2bin(cmd.asText()))));
                 }
-                
+
                 transmitrequest.set("responses", mapper.valueToTree(responses));
             } else {
                 break;
@@ -381,6 +400,7 @@ public class ServiceDeliverySession {
             String action = cmd.get("name").asText();
             switch (action) {
                 case "phonecall":
+                    // TODO: have all in one callback and utilize ConfirmationCallback
                     TextOutputCallback cb1 = new TextOutputCallback(TextOutputCallback.INFORMATION, FidesmoApiClient.lamei18n(cmd.get("description")));
                     TextOutputCallback cb2 = new TextOutputCallback(TextOutputCallback.INFORMATION, "Please call " + cmd.get("parameters").get("number").asText());
                     TextInputCallback cb3 = new TextInputCallback("Press ENTER to continue"); // XXX: a bit tied to the implementation
@@ -477,10 +497,12 @@ public class ServiceDeliverySession {
     }
 
     protected void deliveryInterruptionPoint() {
-        String message = cancelDeliveryWithMessage.get();
-        if (message != null) {
+        if (Thread.currentThread().isInterrupted()) {
             logger.info("Delivery interrupted");
-            throw new UserCancelledException(message);
+            String msg = cancelDeliveryWithMessage.get();
+            if (msg == null)
+                msg = "Delivery interrupted";
+            throw new UserCancelledException(msg);
         }
     }
 
