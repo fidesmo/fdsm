@@ -94,6 +94,9 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
     @Override
     @SuppressWarnings("deprecation")
     public DeliveryResult get() throws FDSMException {
+        if (runner != null)
+            throw new IllegalStateException("ServiceDeliverySession is single-use!");
+
         runner = Thread.currentThread();
         try {
             return deliver(appId, serviceId);
