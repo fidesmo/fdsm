@@ -32,7 +32,7 @@
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
             <artifactId>capfile</artifactId>
-            <version>18.09.25.1</version>
+            <version>20.01.30</version>
         </dependency>
         <!-- Card reader access -->
         <dependency>
@@ -51,7 +51,7 @@
         <dependency>
             <groupId>com.google.auto.service</groupId>
             <artifactId>auto-service</artifactId>
-            <version>1.0-rc6</version>
+            <version>1.0-rc7</version>
             <optional>true</optional>
         </dependency>
     </dependencies>
@@ -186,6 +186,7 @@
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>
                                         <exclude>META-INF/maven/**</exclude>
+                                        <exclude>**/module-info.class</exclude>
                                     </excludes>
                                 </filter>
                             </filters>

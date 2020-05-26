@@ -48,6 +48,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class Main extends CommandLineInterface {
@@ -109,7 +110,7 @@ public class Main extends CommandLineInterface {
                         Path candidate = Paths.get(id);
                         if (Files.exists(candidate)) {
                             CAPFile tmp = CAPFile.fromBytes(Files.readAllBytes(candidate));
-                            id = HexUtils.bin2hex(tmp.getLoadFileDataHash("SHA-256", false));
+                            id = HexUtils.bin2hex(tmp.getLoadFileDataHash("SHA-256"));
                         } else {
                             fail("Not a SHA-256: " + id);
                         }
@@ -244,12 +245,12 @@ public class Main extends CommandLineInterface {
                     }
                     FormHandler formHandler = getCommandLineFormHandler();
 
-                    ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, formHandler);
+                    ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, FDSM_SP, number, formHandler);
 
                     if (args.has(OPT_TIMEOUT))
                         cardSession.setTimeout((Integer) args.valueOf(OPT_TIMEOUT));
 
-                    if (!deliverService(cardSession, FDSM_SP, number).isSuccess()) {
+                    if (!deliverService(cardSession).isSuccess()) {
                         fail("Failed to run service");
                     } else {
                         success();
@@ -309,12 +310,13 @@ public class Main extends CommandLineInterface {
                     if (appId == null) {
                         fail("Need Application ID");
                     }
-                    final ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, formHandler);
+
+                    final ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client,appId, service, formHandler);
 
                     if (args.has(OPT_TIMEOUT))
                         cardSession.setTimeout((Integer) args.valueOf(OPT_TIMEOUT));
                     
-                    ServiceDeliverySession.DeliveryResult result = deliverService(cardSession, appId, service);
+                    ServiceDeliverySession.DeliveryResult result = deliverService(cardSession);
 
                     if (!result.isSuccess()) {
                         fail("Failed to run service");
@@ -413,23 +415,27 @@ public class Main extends CommandLineInterface {
         }
     }
 
-    private static ServiceDeliverySession.DeliveryResult deliverService(ServiceDeliverySession cardSession, String appId, String service)
-            throws UnsupportedCallbackException, IOException, CardException {
-
+    private static ServiceDeliverySession.DeliveryResult deliverService(final ServiceDeliverySession cardSession) {
         Thread cleanup = new Thread(() -> {
             System.err.println("\nCtrl-C received, canceling delivery");
-            cardSession.cancel("User cancelled");
+            cardSession.cancel("Ctrl-C pressed");
+            try {
+                cardSession.await(5, TimeUnit.SECONDS);
+            } catch (InterruptedException ignored) {
+                System.err.println("QUIT");
+            }
         });
 
         Runtime.getRuntime().addShutdownHook(cleanup);
 
         try {
-            return cardSession.deliver(appId, service);
+            return cardSession.get();
         } finally {
-            // It's fine to fail to remove the hook if shutdown is already in progress
             try {
                 Runtime.getRuntime().removeShutdownHook(cleanup);
-            } catch (IllegalStateException ignored) {}
+            } catch (IllegalStateException ignored) {
+                // It's fine to fail to remove the hook if shutdown is already in progress
+            }
         }
     }
 
@@ -454,11 +460,10 @@ public class Main extends CommandLineInterface {
                     if (verbose) {
                         JsonNode service = client.rpc(client.getURI(FidesmoApiClient.SERVICE_URL, appID, s.asText()));
                         JsonNode d = service.get("description").get("description");
-                        fidesmoApp.addService(new FidesmoService(s.asText(), FidesmoApiClient.lamei18n(service.get("description").get("description"))));
+                        fidesmoApp.addService(new FidesmoService(s.asText(), FidesmoApiClient.lamei18n(d)));
                     } else {
                         fidesmoApp.addService(new FidesmoService(s.asText(), null));
                     }
-
                 }
             }
             result.add(fidesmoApp);

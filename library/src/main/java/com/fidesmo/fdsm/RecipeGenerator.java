@@ -28,12 +28,11 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import pro.javacard.AID;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class RecipeGenerator {
-    public static String makeInstallRecipe(AID pkg, AID app, AID instance, byte[] params) throws IOException {
+    public static String makeInstallRecipe(AID pkg, AID app, AID instance, byte[] params) {
         if (instance == null)
             instance = app;
         ObjectNode r = JsonNodeFactory.instance.objectNode();
@@ -54,7 +53,7 @@ public class RecipeGenerator {
         return r.toString();
     }
 
-    public static String makeDeleteRecipe(AID pkg) throws IOException {
+    public static String makeDeleteRecipe(AID pkg) {
         ObjectNode r = JsonNodeFactory.instance.objectNode();
         r.putObject("failureMessage").put("en", "Could not uninstall " + pkg);
         r.putObject("successMessage").put("en", "Successfully uninstalled " + pkg);
@@ -70,7 +69,7 @@ public class RecipeGenerator {
         return r.toString();
     }
 
-    public static String makeStoreDataRecipe(AID app, List<byte[]> payloads) throws IOException {
+    public static String makeStoreDataRecipe(AID app, List<byte[]> payloads) {
         ObjectNode r = JsonNodeFactory.instance.objectNode();
         r.putObject("failureMessage").put("en", "Could not store data to " + app);
         r.putObject("successMessage").put("en", "Successfully stored data to " + app);
@@ -89,7 +88,7 @@ public class RecipeGenerator {
         return r.toString();
     }
 
-    public static String makeSecureTransceiveRecipe(AID app, List<byte[]> apdus) throws IOException {
+    public static String makeSecureTransceiveRecipe(AID app, List<byte[]> apdus) {
         ObjectMapper mapper = new ObjectMapper();
 
         ObjectNode r = JsonNodeFactory.instance.objectNode();

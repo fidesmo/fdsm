@@ -22,7 +22,7 @@
 package com.fidesmo.fdsm;
 
 // Handy marker to indicate that a given scenario is not supported by this application
-public class NotSupportedException extends RuntimeException {
+public class NotSupportedException extends FDSMException {
     NotSupportedException(String message) {
         super(message);
     }

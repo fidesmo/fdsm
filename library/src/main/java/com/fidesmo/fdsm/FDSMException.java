@@ -21,9 +21,8 @@
  */
 package com.fidesmo.fdsm;
 
-// Handy marker to indicate user cancellation (ctrl-c, ctrl-d, escape etc)
-public class UserCancelledException extends FDSMException {
-    UserCancelledException(String message) {
+public class FDSMException extends RuntimeException {
+    FDSMException(String message) {
         super(message);
     }
 }
