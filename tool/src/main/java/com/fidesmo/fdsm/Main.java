@@ -26,6 +26,8 @@ import apdu4j.TerminalManager;
 import apdu4j.terminals.LoggingCardTerminal;
 import com.fasterxml.jackson.databind.JsonNode;
 import jnasmartcardio.Smartcardio;
+
+import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.HttpResponseException;
 import pro.javacard.AID;
 import pro.javacard.CAPFile;
@@ -288,6 +290,19 @@ public class Main extends CommandLineInterface {
                     } else {
                         success("No applications");
                     }
+                } else if (args.has(OPT_RUN) && args.valueOf(OPT_RUN).toString().startsWith("ws://")) {
+                    URI uri = new URI(args.valueOf(OPT_RUN).toString());
+                    
+                    Optional<UsernamePasswordCredentials> credentials = getCredentials();
+                        
+                    boolean success = WsClient.execute(uri, fidesmoCard, credentials).join().isSuccess();
+
+                    if (!success) {
+                        fail("Fail to run a script");
+                    } else {
+                        success();
+                    }
+
                 } else if (args.has(OPT_DELIVER) || args.has(OPT_RUN)) {
                     String service;
                     if (args.has(OPT_DELIVER)) {
@@ -437,6 +452,19 @@ public class Main extends CommandLineInterface {
                 // It's fine to fail to remove the hook if shutdown is already in progress
             }
         }
+    }
+
+    private static Optional<UsernamePasswordCredentials> getCredentials() {
+        return Optional.ofNullable(args.valueOf(OPT_USER)).map((creds) -> {                            
+            String userPass = creds.toString();
+            int pos = userPass.indexOf(':');
+            
+            if (pos < 0) {
+                fail("Invalid format for username and password. Use: user:password");
+            }
+
+            return new UsernamePasswordCredentials(userPass.substring(0, pos), userPass.substring(pos + 1));
+        });
     }
 
     private static String printableCIN(byte[] cin) {

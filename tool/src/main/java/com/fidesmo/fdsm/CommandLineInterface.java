@@ -33,6 +33,7 @@ import java.util.Arrays;
 abstract class CommandLineInterface {
     final static String OPT_APP_ID = "app-id";
     final static String OPT_APP_KEY = "app-key";
+    final static String OPT_USER = "user";
     final static String OPT_APPLET = "applet";
     final static String OPT_DELIVER = "deliver";
     final static String OPT_RUN = "run";
@@ -115,6 +116,7 @@ abstract class CommandLineInterface {
         parser.acceptsAll(Arrays.asList("h", "?", "help"), "Shows this help").forHelp();
         parser.accepts(OPT_APP_ID, "Specify application ID").withRequiredArg().describedAs("HEX");
         parser.accepts(OPT_APP_KEY, "Specify application key").withRequiredArg().describedAs("HEX");
+        parser.accepts(OPT_USER, "Server user name and password").withRequiredArg().describedAs("user:password");
         parser.accepts(OPT_STORE_DATA, "STORE DATA to applet").withRequiredArg().describedAs("HEX");
         parser.accepts(OPT_APPLET, "Specify applet").requiredIf(OPT_STORE_DATA).withRequiredArg().describedAs("AID");
 

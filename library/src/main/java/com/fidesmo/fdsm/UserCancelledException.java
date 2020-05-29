@@ -23,6 +23,7 @@ package com.fidesmo.fdsm;
 
 // Handy marker to indicate user cancellation (ctrl-c, ctrl-d, escape etc)
 public class UserCancelledException extends FDSMException {
+    private static final long serialVersionUID = 2997004052307228095L;
     UserCancelledException(String message) {
         super(message);
     }
