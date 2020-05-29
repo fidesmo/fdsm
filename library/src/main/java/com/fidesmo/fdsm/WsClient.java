@@ -29,7 +29,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.http.auth.UsernamePasswordCredentials;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 import org.slf4j.Logger;
@@ -37,9 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -60,17 +57,15 @@ public class WsClient {
     private final CompletableFuture<ServiceDeliverySession.DeliveryResult> deliveryResult = new CompletableFuture<>();
     private String sessionId;
 
-    public WsClient(URI uri, FidesmoCard card, Optional<UsernamePasswordCredentials> credentials) {
+    public WsClient(URI uri, FidesmoCard card, ClientAuthentication authentication) {
         this.uri = uri;
-        this.headers = credentials.map(creds -> Collections.singletonMap("Authorization", encodeCredentials(creds)))
-                .orElse(null);
+        this.headers = authentication != null ? Collections.singletonMap("Authorization", authentication.toAuthenticationHeader()) : null;
         this.card = card;
         this.client = buildClient();
     }
 
-    public static CompletableFuture<ServiceDeliverySession.DeliveryResult> execute(URI uri, FidesmoCard card,
-            Optional<UsernamePasswordCredentials> credentials) {
-        return new WsClient(uri, card, credentials).run();
+    public static CompletableFuture<ServiceDeliverySession.DeliveryResult> execute(URI uri, FidesmoCard card, ClientAuthentication authentication) {
+        return new WsClient(uri, card, authentication).run();
     }
 
     protected WebSocketClient buildClient() {
@@ -116,7 +111,18 @@ public class WsClient {
         }
 
         client.connect();
-        return deliveryResult;
+        
+        return deliveryResult.thenApply(result -> {
+            String message = result.getMessage().isEmpty() ? "" : (": " + result.getMessage());
+
+            if (result.isSuccess()) {
+                logger.info("Success" + message);
+            } else {
+                logger.info("Failure" + message);
+            }
+
+            return result;
+        });
     }
 
     protected void processCommand(JsonNode node) throws IOException, DecoderException, CardException {
@@ -170,7 +176,4 @@ public class WsClient {
         client.send(mapper.writeValueAsString(node));
     }
 
-    private String encodeCredentials(UsernamePasswordCredentials creds) {
-        return "Basic " + Base64.getEncoder().encodeToString((creds.getUserName() + ":" + creds.getPassword()).getBytes(StandardCharsets.UTF_8));
-    }
 }

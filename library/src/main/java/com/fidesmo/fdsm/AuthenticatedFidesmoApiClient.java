@@ -38,18 +38,22 @@ import java.io.PrintStream;
 import java.net.URI;
 
 public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
-    private AuthenticatedFidesmoApiClient(String appId, String appKey, PrintStream apidump) {
-        super(appId, appKey, apidump);
+
+    private AuthenticatedFidesmoApiClient(ClientAuthentication auth, PrintStream apidump) {
+        super(auth, apidump);
     }
 
-    public static AuthenticatedFidesmoApiClient getInstance(String appId, String appKey) throws IllegalArgumentException {
-        return new AuthenticatedFidesmoApiClient(appId, appKey, null);
+    public static AuthenticatedFidesmoApiClient getInstance(String user, String password) throws IllegalArgumentException {
+        return new AuthenticatedFidesmoApiClient(ClientAuthentication.forUserPassword(user, password), null);
     }
 
-    public static AuthenticatedFidesmoApiClient getInstance(String appId, String appKey, PrintStream apidump) throws IllegalArgumentException {
-        return new AuthenticatedFidesmoApiClient(appId, appKey, apidump);
+    public static AuthenticatedFidesmoApiClient getInstance(String user, String password, PrintStream apidump) throws IllegalArgumentException {
+        return new AuthenticatedFidesmoApiClient(ClientAuthentication.forUserPassword(user, password), apidump);
     }
 
+    public static AuthenticatedFidesmoApiClient getInstance(ClientAuthentication auth, PrintStream apidump) throws IllegalArgumentException {
+        return new AuthenticatedFidesmoApiClient(auth, apidump);
+    }
 
     public void put(URI uri, String json) throws IOException {
         HttpPut put = new HttpPut(uri);
@@ -62,10 +66,10 @@ public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
         transmit(delete).close();
     }
 
+    @Deprecated
     public String getAppId() {
-        return appId;
+        return authentication.getUsername();
     }
-
 
     // Upload a CAP file
     public void upload(CAPFile cap) throws IOException {

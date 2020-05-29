@@ -290,19 +290,6 @@ public class Main extends CommandLineInterface {
                     } else {
                         success("No applications");
                     }
-                } else if (args.has(OPT_RUN) && args.valueOf(OPT_RUN).toString().startsWith("ws://")) {
-                    URI uri = new URI(args.valueOf(OPT_RUN).toString());
-                    
-                    Optional<UsernamePasswordCredentials> credentials = getCredentials();
-                        
-                    boolean success = WsClient.execute(uri, fidesmoCard, credentials).join().isSuccess();
-
-                    if (!success) {
-                        fail("Fail to run a script");
-                    } else {
-                        success();
-                    }
-
                 } else if (args.has(OPT_DELIVER) || args.has(OPT_RUN)) {
                     String service;
                     if (args.has(OPT_DELIVER)) {
@@ -311,37 +298,53 @@ public class Main extends CommandLineInterface {
                     } else {
                         service = args.valueOf(OPT_RUN).toString();
                     }
-                    FormHandler formHandler = getCommandLineFormHandler();
 
-                    if (service.contains("/")) {
-                        String[] bits = service.split("/");
-                        if (bits.length == 2 && bits[0].length() == 8) {
-                            service = bits[1];
-                            appId = bits[0];
+                    if (service.startsWith("ws://") || service.startsWith("wss://")) {
+                        boolean success = WsClient.execute(new URI(service), fidesmoCard, getAuthentication()).join().isSuccess();
+
+                        if (!success) {
+                            fail("Fail to run a script");
                         } else {
-                            fail("Invalid argument: " + service);
+                            success();
                         }
-                    }
-                    if (appId == null) {
-                        fail("Need Application ID");
-                    }
 
-                    final ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client,appId, service, formHandler);
-
-                    if (args.has(OPT_TIMEOUT))
-                        cardSession.setTimeout((Integer) args.valueOf(OPT_TIMEOUT));
-                    
-                    ServiceDeliverySession.DeliveryResult result = deliverService(cardSession);
-
-                    if (!result.isSuccess()) {
-                        fail("Failed to run service");
                     } else {
-                        success(); // Explicitly quit to signal successful service. Which implies only one service per invocation
+                        FormHandler formHandler = getCommandLineFormHandler();
+
+                        if (service.contains("/")) {
+                            String[] bits = service.split("/");
+                            if (bits.length == 2 && bits[0].length() == 8) {
+                                service = bits[1];
+                                appId = bits[0];
+                            } else {
+                                fail("Invalid argument: " + service);
+                            }
+                        }
+                        if (appId == null) {
+                            fail("Need Application ID");
+                        }
+
+                        final ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, appId, service, formHandler);
+
+                        if (args.has(OPT_TIMEOUT))
+                            cardSession.setTimeout((Integer) args.valueOf(OPT_TIMEOUT));
+
+                        ServiceDeliverySession.DeliveryResult result = deliverService(cardSession);
+
+                        if (!result.isSuccess()) {
+                            fail("Failed to run service");
+                        } else {
+                            success(); // Explicitly quit to signal successful service. Which implies only one service per invocation
+                        }
                     }
                 } else if (requiresAuthentication()) { // XXX
                     AuthenticatedFidesmoApiClient authenticatedClient = getAuthenticatedClient();
                     checkVersions(authenticatedClient); // Always check versions
                     FormHandler formHandler = getCommandLineFormHandler();
+
+                    if (appId == null) {
+                        fail("Application ID is required. Use --appId or FIDESMO_APP_ID");
+                    }
 
                     if (args.has(OPT_INSTALL)) {
                         CAPFile cap = CAPFile.fromStream(new FileInputStream((File) args.valueOf(OPT_INSTALL)));
@@ -371,10 +374,14 @@ public class Main extends CommandLineInterface {
                         if (args.has(OPT_UPLOAD)) {
                             authenticatedClient.upload(cap);
                         }
-                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, recipe);
+                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, appId, recipe);
                     } else if (args.has(OPT_UNINSTALL)) {
                         String s = (String) args.valueOf(OPT_UNINSTALL);
                         Path p = Paths.get(s);
+
+                        if (appId == null) {
+                            fail("Application ID is required. Use --appId or FIDESMO_APP_ID");
+                        }
 
                         AID aid = null;
                         if (!Files.exists(p)) {
@@ -387,7 +394,7 @@ public class Main extends CommandLineInterface {
                             aid = CAPFile.fromBytes(Files.readAllBytes(p)).getPackageAID();
                         }
                         String recipe = RecipeGenerator.makeDeleteRecipe(aid);
-                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, recipe);
+                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, appId, recipe);
                     }
 
                     // Can be chained
@@ -395,7 +402,7 @@ public class Main extends CommandLineInterface {
                         List<byte[]> blobs = args.valuesOf(OPT_STORE_DATA).stream().map(s -> HexUtils.stringToBin((String) s)).collect(Collectors.toList());
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET).toString());
                         String recipe = RecipeGenerator.makeStoreDataRecipe(applet, blobs);
-                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, recipe);
+                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, appId, recipe);
                     }
 
                     // Can be chained
@@ -403,7 +410,7 @@ public class Main extends CommandLineInterface {
                         List<byte[]> apdus = args.valuesOf(OPT_SECURE_APDU).stream().map(s -> HexUtils.stringToBin((String) s)).collect(Collectors.toList());
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET).toString());
                         String recipe = RecipeGenerator.makeSecureTransceiveRecipe(applet, apdus);
-                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, recipe);
+                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, appId, recipe);
                     }
                 }
             }
@@ -454,17 +461,21 @@ public class Main extends CommandLineInterface {
         }
     }
 
-    private static Optional<UsernamePasswordCredentials> getCredentials() {
-        return Optional.ofNullable(args.valueOf(OPT_USER)).map((creds) -> {                            
-            String userPass = creds.toString();
-            int pos = userPass.indexOf(':');
-            
-            if (pos < 0) {
-                fail("Invalid format for username and password. Use: user:password");
-            }
+    private static ClientAuthentication getAuthentication() {
+        if (args.has(OPT_AUTH)) {
+            return ClientAuthentication.forUserPasswordOrToken(args.valueOf(OPT_AUTH).toString());
+        }
 
-            return new UsernamePasswordCredentials(userPass.substring(0, pos), userPass.substring(pos + 1));
-        });
+        if (System.getenv().containsKey("FDSM_AUTH")) {
+            return ClientAuthentication.forUserPasswordOrToken(System.getenv("FDSM_AUTH"));
+        }
+
+        if (appId != null && appKey != null) {
+            System.err.println("using appId and appKey is deprecated for --auth and $FDSM_AUTH. Please update your scripts");
+            return ClientAuthentication.forUserPassword(appId, appKey);
+        }
+
+        return null;
     }
 
     private static String printableCIN(byte[] cin) {
@@ -517,7 +528,7 @@ public class Main extends CommandLineInterface {
     }
 
     private static FidesmoApiClient getClient() {
-        return new FidesmoApiClient(apiTrace ? System.out : null);
+        return new FidesmoApiClient(getAuthentication(), apiTrace ? System.out : null);
     }
 
     static void checkVersions(FidesmoApiClient client) {
@@ -558,8 +569,9 @@ public class Main extends CommandLineInterface {
     }
 
     private static AuthenticatedFidesmoApiClient getAuthenticatedClient() {
-        if (appId == null || appKey == null) {
-            fail("Provide appId and appKey, either via --app-id and --app-key or $FIDESMO_APP_ID and $FIDESMO_APP_KEY");
+        ClientAuthentication auth = getAuthentication();
+        if (auth == null) {
+            fail("Provide authentication either via --auth or $FDSM_AUTH");
         }
         return AuthenticatedFidesmoApiClient.getInstance(appId, appKey, apiTrace ? System.out : null);
     }

@@ -21,16 +21,12 @@
  */
 package com.fidesmo.fdsm;
 
-import apdu4j.HexUtils;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.core.util.DefaultIndenter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.io.IOUtils;
-import org.apache.http.auth.AuthenticationException;
-import org.apache.http.auth.Credentials;
-import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.HttpResponseException;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -39,10 +35,9 @@ import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.ContentType;
-import org.apache.http.impl.auth.BasicScheme;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.protocol.BasicHttpContext;
+import org.apache.http.message.BasicHeader;
 
 import java.io.*;
 import java.net.MalformedURLException;
@@ -80,9 +75,8 @@ public class FidesmoApiClient {
     private PrintStream apidump;
     private final CloseableHttpClient http;
     private final HttpClientContext context = HttpClientContext.create();
-    protected final String appId;
     private final String apiurl;
-    private final Credentials credentials;
+    protected final ClientAuthentication authentication;
 
     static DefaultPrettyPrinter printer = new DefaultPrettyPrinter();
     static ObjectMapper mapper = new ObjectMapper();
@@ -95,24 +89,22 @@ public class FidesmoApiClient {
     }
 
     public FidesmoApiClient() {
-        this(null, null, null);
+        this(null,  null);
     }
 
     public FidesmoApiClient(PrintStream apidump) {
         this(null, null, apidump);
     }
 
-    public FidesmoApiClient(String appId, String appKey, PrintStream apidump) {
-        if (appId != null && appKey != null) {
-            if (HexUtils.hex2bin(appId).length != 4)
-                throw new IllegalArgumentException("appId must be 4 bytes long (8 hex characters)");
-            if (HexUtils.hex2bin(appKey).length != 16)
-                throw new IllegalArgumentException("appKey must be 16 bytes long (32 hex characters)");
+    public FidesmoApiClient(String user, String password, PrintStream apidump) {
+        this(
+            (user != null && password != null) ? ClientAuthentication.forUserPassword(user, password) : null,
+            apidump
+        );
+    }
 
-            credentials = new UsernamePasswordCredentials(appId, appKey);
-        } else {
-            credentials = null;
-        }
+    public FidesmoApiClient(ClientAuthentication authentication, PrintStream apidump) {
+        this.authentication = authentication;
 
         if (System.getenv().containsKey("FIDESMO_API_URL")) {
             String check;
@@ -132,7 +124,6 @@ public class FidesmoApiClient {
                 .useSystemProperties()
                 .setUserAgent("fdsm/" + getVersion())
                 .build();
-        this.appId = appId;
         this.apidump = apidump;
     }
 
@@ -142,12 +133,8 @@ public class FidesmoApiClient {
             apidump.println(request.getMethod() + ": " + request.getURI());
         }
 
-        if (credentials != null) {
-            try {
-                request.addHeader(new BasicScheme().authenticate(credentials, request, new BasicHttpContext()));
-            } catch (AuthenticationException authEx) {
-                throw new IOException("Error while authenticating request", authEx);
-            }
+        if (authentication != null) {
+            request.addHeader(new BasicHeader("Authentication", authentication.toAuthenticationHeader()));
         }
 
         CloseableHttpResponse response = http.execute(request, context);

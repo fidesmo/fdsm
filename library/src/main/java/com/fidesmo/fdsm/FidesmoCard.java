@@ -151,18 +151,36 @@ public class FidesmoCard {
         return card;
     }
 
-    public boolean deliverRecipe(AuthenticatedFidesmoApiClient client, FormHandler formHandler, String recipe) throws CardException, IOException, UnsupportedCallbackException {
-        return deliverRecipes(client, formHandler, Collections.singletonList(recipe));
+
+    /**
+     * Deprecated in favour of deliverRecipes(AuthenticatedFidesmoApiClient, FormHandler, String, List<String>)
+     */
+    @Deprecated()
+    public boolean deliverRecipe(AuthenticatedFidesmoApiClient client, FormHandler formHandler, String recipe) throws IOException {
+        return deliverRecipe(client, formHandler, client.getAppId(), recipe);
     }
 
-    public boolean deliverRecipes(AuthenticatedFidesmoApiClient client, FormHandler formHandler, List<String> recipes) throws CardException, IOException, UnsupportedCallbackException {
+    /**
+     * Deprecated in favour of deliverRecipes(AuthenticatedFidesmoApiClient, FormHandler, String, List<String>)
+     */
+    @Deprecated()
+    public boolean deliverRecipes(AuthenticatedFidesmoApiClient client, FormHandler formHandler, List<String> recipes) throws IOException {
+        return deliverRecipes(client, formHandler, client.getAppId(), recipes);
+    }
+
+    public boolean deliverRecipe(AuthenticatedFidesmoApiClient client, FormHandler formHandler, String appId, String recipe) throws IOException {
+        return deliverRecipes(client, formHandler, appId, Collections.singletonList(recipe));
+    }
+
+    public boolean deliverRecipes(AuthenticatedFidesmoApiClient client, FormHandler formHandler, String appId, List<String> recipes) throws IOException {
+
         for (String recipe : recipes) {
             final String uuid = UUID.randomUUID().toString();
 
-            URI uri = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, client.getAppId(), uuid);
+            URI uri = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, appId, uuid);
             client.put(uri, recipe);
 
-            ServiceDeliverySession session = ServiceDeliverySession.getInstance(this, client, client.getAppId(), uuid, formHandler);
+            ServiceDeliverySession session = ServiceDeliverySession.getInstance(this, client, appId, uuid, formHandler);
 
             // Remove
             session.cleanups.add(() -> {
