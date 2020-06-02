@@ -34,9 +34,10 @@ FDSM should be easy to use for [JavaCard developers](https://developer.fidesmo.c
 ## License and development
 FDSM is open source software, developed by [Fidesmo AB](https://www.fidesmo.com) and licensed under [MIT license](https://github.com/fidesmo/fdsm/blob/master/LICENSE). Pull requests are most welcome, please refer to [CONTRIBUTING.md](https://github.com/fidesmo/fdsm/blob/master/CONTRIBUTING.md).
 
-To contribute you will need [Apache Maven](https://maven.apache.org) to build and test the software.
+To contribute you will need [Apache Maven](https://maven.apache.org) to build and test the
+software, but a wrapper to download the right version is included.
 
-To produce a build, execute `mvn package` and use the generated `target/fdsm.jar`.
+To produce a build, execute `./mvnw package` and use the generated `target/fdsm.jar`.
 
 ### Environment variables
 `fdsm` is a command line application and takes most of its input from
