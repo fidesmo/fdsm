@@ -12,11 +12,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@master
-      - name: Build
-        uses: docker://maven:3.6.3-jdk-8
+      - name: Setup Java
+        uses: actions/setup-java@master
         with:
-          entrypoint: mvn
-          args: -U -B -P release verify
+          java-version: 1.8
+      - name: Build
+        run: ./mvnw -B -P release verify
       - name: Release
         id: create_release
         uses: actions/create-release@v1.0.0
