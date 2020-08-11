@@ -106,7 +106,7 @@ public class Main extends CommandLineInterface {
 
                 // Delete a specific applet
                 if (args.has(OPT_DELETE_APPLET)) {
-                    String id = args.valueOf(OPT_DELETE_APPLET).toString();
+                    String id = args.valueOf(OPT_DELETE_APPLET);
                     // DWIM: take ID or CAP file as argument
                     if (!id.toLowerCase().matches("[a-f0-9]{64}")) {
                         Path candidate = Paths.get(id);
@@ -194,7 +194,7 @@ public class Main extends CommandLineInterface {
                 }
 
                 if (args.has(OPT_UPLOAD) && args.valueOf(OPT_UPLOAD) != null) {
-                    CAPFile cap = CAPFile.fromStream(new FileInputStream((File) args.valueOf(OPT_UPLOAD)));
+                    CAPFile cap = CAPFile.fromStream(new FileInputStream(args.valueOf(OPT_UPLOAD)));
                     client.upload(cap);
                 } else if (args.has(OPT_FLUSH_APPLETS)) {
                     JsonNode applets = client.rpc(client.getURI(FidesmoApiClient.ELF_URL));
@@ -211,7 +211,7 @@ public class Main extends CommandLineInterface {
                 // Locate a Fidesmo card, unless asked for a specific terminal
                 CardTerminal terminal = null;
                 if (args.has(OPT_READER)) {
-                    String reader = args.valueOf(OPT_READER).toString();
+                    String reader = args.valueOf(OPT_READER);
                     for (CardTerminal t : TerminalManager.getTerminalFactory().terminals().list()) {
                         if (t.getName().toLowerCase().contains(reader.toLowerCase())) {
                             terminal = t;
@@ -250,7 +250,7 @@ public class Main extends CommandLineInterface {
                     ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, FDSM_SP, number, formHandler);
 
                     if (args.has(OPT_TIMEOUT))
-                        cardSession.setTimeout((Integer) args.valueOf(OPT_TIMEOUT));
+                        cardSession.setTimeout(args.valueOf(OPT_TIMEOUT));
 
                     if (!deliverService(cardSession).isSuccess()) {
                         fail("Failed to run service");
@@ -294,9 +294,9 @@ public class Main extends CommandLineInterface {
                     String service;
                     if (args.has(OPT_DELIVER)) {
                         System.err.println("--deliver is deprecated for --run. Please update your scripts");
-                        service = args.valueOf(OPT_DELIVER).toString();
+                        service = args.valueOf(OPT_DELIVER);
                     } else {
-                        service = args.valueOf(OPT_RUN).toString();
+                        service = args.valueOf(OPT_RUN);
                     }
 
                     if (service.startsWith("ws://") || service.startsWith("wss://")) {
@@ -327,7 +327,7 @@ public class Main extends CommandLineInterface {
                         final ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, appId, service, formHandler);
 
                         if (args.has(OPT_TIMEOUT))
-                            cardSession.setTimeout((Integer) args.valueOf(OPT_TIMEOUT));
+                            cardSession.setTimeout(args.valueOf(OPT_TIMEOUT));
 
                         ServiceDeliverySession.DeliveryResult result = deliverService(cardSession);
 
@@ -347,13 +347,13 @@ public class Main extends CommandLineInterface {
                     }
 
                     if (args.has(OPT_INSTALL)) {
-                        CAPFile cap = CAPFile.fromStream(new FileInputStream((File) args.valueOf(OPT_INSTALL)));
+                        CAPFile cap = CAPFile.fromStream(new FileInputStream(args.valueOf(OPT_INSTALL)));
                         // Which applet
                         final AID applet;
                         if (cap.getAppletAIDs().size() > 1) {
                             if (!args.has(OPT_APPLET))
                                 fail("Must specify --applet with multiple applets in CAP!");
-                            applet = AID.fromString(args.valueOf(OPT_APPLET).toString());
+                            applet = AID.fromString(args.valueOf(OPT_APPLET));
                         } else {
                             applet = cap.getAppletAIDs().get(0);
                         }
@@ -361,10 +361,10 @@ public class Main extends CommandLineInterface {
                         // What instance
                         AID instance = applet;
                         if (args.has(OPT_CREATE))
-                            instance = AID.fromString(args.valueOf(OPT_CREATE).toString());
+                            instance = AID.fromString(args.valueOf(OPT_CREATE));
                         byte[] params = null;
                         if (args.has(OPT_PARAMS)) {
-                            params = HexUtils.stringToBin(args.valueOf(OPT_PARAMS).toString());
+                            params = HexUtils.stringToBin(args.valueOf(OPT_PARAMS));
                             // Restriction
                             if (params.length > 0 && params[0] == (byte) 0xC9) {
                                 fail("Installation parameters must be without C9 tag");
@@ -376,7 +376,7 @@ public class Main extends CommandLineInterface {
                         }
                         fidesmoCard.deliverRecipe(authenticatedClient, formHandler, appId, recipe);
                     } else if (args.has(OPT_UNINSTALL)) {
-                        String s = (String) args.valueOf(OPT_UNINSTALL);
+                        String s = args.valueOf(OPT_UNINSTALL);
                         Path p = Paths.get(s);
 
                         if (appId == null) {
@@ -399,16 +399,16 @@ public class Main extends CommandLineInterface {
 
                     // Can be chained
                     if (args.has(OPT_STORE_DATA)) {
-                        List<byte[]> blobs = args.valuesOf(OPT_STORE_DATA).stream().map(s -> HexUtils.stringToBin((String) s)).collect(Collectors.toList());
-                        AID applet = AID.fromString(args.valueOf(OPT_APPLET).toString());
+                        List<byte[]> blobs = args.valuesOf(OPT_STORE_DATA).stream().map(s -> HexUtils.stringToBin(s)).collect(Collectors.toList());
+                        AID applet = AID.fromString(args.valueOf(OPT_APPLET));
                         String recipe = RecipeGenerator.makeStoreDataRecipe(applet, blobs);
                         fidesmoCard.deliverRecipe(authenticatedClient, formHandler, appId, recipe);
                     }
 
                     // Can be chained
                     if (args.has(OPT_SECURE_APDU)) {
-                        List<byte[]> apdus = args.valuesOf(OPT_SECURE_APDU).stream().map(s -> HexUtils.stringToBin((String) s)).collect(Collectors.toList());
-                        AID applet = AID.fromString(args.valueOf(OPT_APPLET).toString());
+                        List<byte[]> apdus = args.valuesOf(OPT_SECURE_APDU).stream().map(s -> HexUtils.stringToBin(s)).collect(Collectors.toList());
+                        AID applet = AID.fromString(args.valueOf(OPT_APPLET));
                         String recipe = RecipeGenerator.makeSecureTransceiveRecipe(applet, apdus);
                         fidesmoCard.deliverRecipe(authenticatedClient, formHandler, appId, recipe);
                     }
@@ -463,7 +463,7 @@ public class Main extends CommandLineInterface {
 
     private static ClientAuthentication getAuthentication() {
         if (args.has(OPT_AUTH)) {
-            return ClientAuthentication.forUserPasswordOrToken(args.valueOf(OPT_AUTH).toString());
+            return ClientAuthentication.forUserPasswordOrToken(args.valueOf(OPT_AUTH));
         }
 
         if (System.getenv().containsKey("FDSM_AUTH")) {
@@ -550,7 +550,7 @@ public class Main extends CommandLineInterface {
         Map<String, String> cliFields = new HashMap<>();
 
         if (args.has(OPT_FIELDS)) {
-            String[] fieldPairs = args.valueOf(OPT_FIELDS).toString().split(",");
+            String[] fieldPairs = args.valueOf(OPT_FIELDS).split(",");
 
             for (String pair : fieldPairs) {
                 if (!pair.isEmpty()) {

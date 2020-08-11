@@ -32,10 +32,14 @@ import pro.javacard.AID;
 import pro.javacard.CAPFile;
 import pro.javacard.CAPPackage;
 
+import javax.print.DocFlavor;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.URI;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 
 public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
 
@@ -73,16 +77,18 @@ public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
 
     // Upload a CAP file
     public void upload(CAPFile cap) throws IOException {
-        if (cap.guessJavaCardVersion().equals("3.0.5")) {
+        Optional<String> javaCardVersion = cap.guessJavaCardVersion();
+        List<String> unsupportedVersions = Arrays.asList("3.0.5", "3.1.0");
+        if (!javaCardVersion.isPresent() || unsupportedVersions.contains(javaCardVersion.get())) {
             throw new IOException("Fidesmo supports JavaCard up to version 3.0.4");
         }
 
         HttpPost post = new HttpPost(getURI(ELF_URL));
         // Metadata headers
-        post.setHeader("Java-Card-Version", cap.guessJavaCardVersion());
+        post.setHeader("Java-Card-Version", cap.guessJavaCardVersion().get());
         // Do not send this info at this moment
-        if (cap.guessGlobalPlatformVersion() != null) {
-            String gpver = cap.guessGlobalPlatformVersion();
+        if (cap.guessGlobalPlatformVersion().isPresent()) {
+            String gpver = cap.guessGlobalPlatformVersion().get();
             // Always "upgrade" to (and verify against) 2.2
             if (gpver.equals("2.1.1"))
                 gpver = "2.2";
