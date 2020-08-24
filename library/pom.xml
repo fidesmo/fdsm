@@ -20,7 +20,7 @@
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
             <artifactId>capfile</artifactId>
-            <version>18.09.25.1</version>
+            <version>20.01.30</version>
         </dependency>
         <!-- Card reader access -->
         <dependency>
@@ -28,11 +28,11 @@
             <artifactId>apdu4j-core</artifactId>
             <version>2020b1</version>
         </dependency>
-        <!-- API access: HTTP -->
+        <!-- API access: HTTP/WebSocket TODO: transition to OkHttp -->
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
-            <version>4.5.10</version>
+            <version>4.5.12</version>
         </dependency>
         <dependency>
             <groupId>org.java-websocket</groupId>
@@ -43,13 +43,13 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.10.2</version>
+            <version>2.11.2</version>
         </dependency>
         <!-- Util -->
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.6</version>
+            <version>2.7</version>
         </dependency>
         <!-- Logging -->
         <dependency>
@@ -61,13 +61,13 @@
         <dependency>
             <groupId>com.payneteasy</groupId>
             <artifactId>ber-tlv</artifactId>
-            <version>1.0-10</version>
+            <version>1.0-11</version>
         </dependency>
         <!-- Test dependencies -->
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
-            <version>7.0.0</version>
+            <version>7.3.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
