@@ -134,7 +134,7 @@ public class FidesmoApiClient {
         }
 
         if (authentication != null) {
-            request.addHeader(new BasicHeader("Authentication", authentication.toAuthenticationHeader()));
+            request.addHeader(new BasicHeader("Authorization", authentication.toAuthenticationHeader()));
         }
 
         CloseableHttpResponse response = http.execute(request, context);
