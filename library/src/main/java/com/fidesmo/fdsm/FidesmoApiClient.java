@@ -27,6 +27,7 @@ import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpHeaders;
 import org.apache.http.client.HttpResponseException;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -89,7 +90,7 @@ public class FidesmoApiClient {
     }
 
     public FidesmoApiClient() {
-        this(null,  null);
+        this(null, null);
     }
 
     public FidesmoApiClient(PrintStream apidump) {
@@ -97,10 +98,7 @@ public class FidesmoApiClient {
     }
 
     public FidesmoApiClient(String user, String password, PrintStream apidump) {
-        this(
-            (user != null && password != null) ? ClientAuthentication.forUserPassword(user, password) : null,
-            apidump
-        );
+        this((user != null && password != null) ? ClientAuthentication.forUserPassword(user, password) : null, apidump);
     }
 
     public FidesmoApiClient(ClientAuthentication authentication, PrintStream apidump) {
@@ -134,7 +132,7 @@ public class FidesmoApiClient {
         }
 
         if (authentication != null) {
-            request.addHeader(new BasicHeader("Authorization", authentication.toAuthenticationHeader()));
+            request.addHeader(new BasicHeader(HttpHeaders.AUTHORIZATION, authentication.toAuthenticationHeader()));
         }
 
         CloseableHttpResponse response = http.execute(request, context);
@@ -168,8 +166,9 @@ public class FidesmoApiClient {
                 apidump.println(mapper.writer(printer).writeValueAsString(request));
         }
 
-        req.setHeader("Accept", ContentType.APPLICATION_JSON.toString());
-        req.setHeader("Content-type", ContentType.APPLICATION_JSON.toString());
+
+        req.setHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.toString());
+        req.setHeader(HttpHeaders.CONTENT_TYPE, ContentType.APPLICATION_JSON.toString());
 
         try (CloseableHttpResponse response = transmit(req)) {
             if (response.getStatusLine().getStatusCode() == 204) {
