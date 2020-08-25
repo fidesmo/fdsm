@@ -56,7 +56,7 @@ public class ClientAuthentication {
         if (isToken()) {
             return "Bearer " + authentication;
         } else {
-            return "Basic" + Base64.getEncoder().encodeToString(authentication.getBytes(StandardCharsets.UTF_8));
+            return "Basic " + Base64.getEncoder().encodeToString(authentication.getBytes(StandardCharsets.UTF_8));
         }
     }
 }
