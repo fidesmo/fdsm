@@ -27,6 +27,7 @@ import apdu4j.terminals.LoggingCardTerminal;
 import com.fasterxml.jackson.databind.JsonNode;
 import jnasmartcardio.Smartcardio;
 
+import org.apache.commons.codec.binary.Hex;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.HttpResponseException;
 import pro.javacard.AID;
@@ -56,6 +57,7 @@ import java.util.stream.Collectors;
 public class Main extends CommandLineInterface {
     static final String FDSM_SP = "8e5cdaae";
     private static FidesmoCard fidesmoCard;
+    static boolean deprecationWarningShown = false;
 
     public static void main(String[] argv) {
         System.setProperty("org.slf4j.simpleLogger.showThreadName", "false");
@@ -193,7 +195,7 @@ public class Main extends CommandLineInterface {
                     }
                 }
 
-                if (args.has(OPT_UPLOAD) && args.valueOf(OPT_UPLOAD) != null) {
+                if (args.has(OPT_UPLOAD)) {
                     CAPFile cap = CAPFile.fromStream(new FileInputStream(args.valueOf(OPT_UPLOAD)));
                     client.upload(cap);
                 } else if (args.has(OPT_FLUSH_APPLETS)) {
@@ -370,8 +372,16 @@ public class Main extends CommandLineInterface {
                                 fail("Installation parameters must be without C9 tag");
                             }
                         }
-                        String recipe = RecipeGenerator.makeInstallRecipe(cap.getPackageAID(), applet, instance, params);
-                        if (args.has(OPT_UPLOAD)) {
+                        String recipe = RecipeGenerator.makeInstallRecipe(cap.getLoadFileDataHash("SHA-256"), applet, instance, params);
+                        JsonNode applets = client.rpc(client.getURI(FidesmoApiClient.ELF_URL));
+                        boolean present = false;
+                        for (JsonNode e : applets) {
+                            if (Arrays.equals(Hex.decodeHex(e.get("id").asText()), cap.getLoadFileDataHash("SHA-256"))) {
+                                present = true;
+                            }
+                        }
+                        // Upload
+                        if (!present) {
                             authenticatedClient.upload(cap);
                         }
                         fidesmoCard.deliverRecipe(authenticatedClient, formHandler, appId, recipe);
@@ -471,7 +481,10 @@ public class Main extends CommandLineInterface {
         }
 
         if (appId != null && appKey != null) {
-            System.err.println("using appId and appKey is deprecated for --auth and $FDSM_AUTH. Please update your scripts");
+            if (!deprecationWarningShown) {
+                System.err.println("using appId and appKey is deprecated for --auth and $FDSM_AUTH. Please update your scripts");
+                deprecationWarningShown = true;
+            }
             return ClientAuthentication.forUserPassword(appId, appKey);
         }
 
@@ -542,7 +555,8 @@ public class Main extends CommandLineInterface {
             }
         } catch (URISyntaxException | IOException e) {
             // Do nothing.
-            System.err.println("Warning: could not check for updates!");
+            if (FidesmoApiClient.isDeveloperMode())
+                System.err.println("Warning: could not check for updates!");
         }
     }
 
@@ -573,7 +587,7 @@ public class Main extends CommandLineInterface {
         if (auth == null) {
             fail("Provide authentication either via --auth or $FDSM_AUTH");
         }
-        return AuthenticatedFidesmoApiClient.getInstance(appId, appKey, apiTrace ? System.out : null);
+        return AuthenticatedFidesmoApiClient.getInstance(auth, apiTrace ? System.out : null);
     }
 
     private static class FidesmoService {
