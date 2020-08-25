@@ -32,20 +32,22 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class RecipeGenerator {
-    public static String makeInstallRecipe(AID pkg, AID app, AID instance, byte[] params) {
+    // uses LFDBH
+    public static String makeInstallRecipe(byte[] pkg, AID app, AID instance, byte[] params) {
         if (instance == null)
             instance = app;
         ObjectNode r = JsonNodeFactory.instance.objectNode();
-        r.putObject("failureMessage").put("en", "Could not install " + pkg);
-        r.putObject("successMessage").put("en", "Successfully installed " + pkg);
+        r.putObject("failureMessage").put("en", "Could not install " + instance);
+        r.putObject("successMessage").put("en", "Successfully installed " + instance);
         r.putObject("description").put("title", "Install application " + instance);
 
         ObjectNode action = JsonNodeFactory.instance.objectNode();
         action.put("endpoint", "/ccm/install");
         ObjectNode content = action.putObject("content");
-        content.put("executableLoadFile", pkg.toString());
-        content.put("executableModule", app.toString());
+        content.put("id", HexUtils.bin2hex(pkg));
+        content.put("module", app.toString());
         content.put("application", instance.toString());
+        content.put("searchBy", "lfdbh");
         if (params != null)
             content.put("parameters", HexUtils.bin2hex(params));
         r.putArray("actions").add(action);
