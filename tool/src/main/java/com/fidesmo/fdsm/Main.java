@@ -27,6 +27,7 @@ import apdu4j.HexUtils;
 import apdu4j.TerminalManager;
 import apdu4j.terminals.LoggingCardTerminal;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fidesmo.fdsm.FidesmoCard.ChipPlatform;
 import jnasmartcardio.Smartcardio;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.http.client.HttpResponseException;
@@ -276,11 +277,10 @@ public class Main extends CommandLineInterface {
                             JsonNode capabilities = device.get("description").get("capabilities");
                             int platformVersion = capabilities.get("platformVersion").asInt();
                             int platformType = capabilities.get("osTypeVersion").asInt();
-
-                            System.out.format("IIN: %s %n",
-                                    verbose ? String.format(" IIN: %s", HexUtils.bin2hex(iin)) : "");
+                            if (verbose)
+                                System.out.format("IIN: %s%n", HexUtils.bin2hex(iin));
                             // For platforms that are not yet supported by fdsm
-                            String platform = FidesmoCard.ChipPlatform.valueOf(platformType).toString();
+                            String platform = ChipPlatform.valueOf(platformType).map(ChipPlatform::toString).orElse("unknown");
                             System.out.format("OS type: %s (platform v%d)%n", platform, platformVersion);
                         }
                     } else {
