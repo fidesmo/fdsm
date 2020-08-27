@@ -21,6 +21,8 @@
  */
 package com.fidesmo.fdsm;
 
+import apdu4j.BIBO;
+import apdu4j.BIBOException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -44,8 +46,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import javax.smartcardio.CardException;
-
 public class WsClient {
     private final static Logger logger = LoggerFactory.getLogger(WsClient.class);
 
@@ -53,19 +53,19 @@ public class WsClient {
 
     private final URI uri;
     private final Map<String, String> headers;
-    private final FidesmoCard card;
+    private final BIBO card;
     private final WebSocketClient client;
     private final CompletableFuture<ServiceDeliverySession.DeliveryResult> deliveryResult = new CompletableFuture<>();
     private String sessionId;
 
-    public WsClient(URI uri, FidesmoCard card, ClientAuthentication authentication) {
+    public WsClient(URI uri, BIBO card, ClientAuthentication authentication) {
         this.uri = uri;
         this.headers = authentication != null ? Collections.singletonMap(HttpHeaders.AUTHORIZATION, authentication.toAuthenticationHeader()) : null;
         this.card = card;
         this.client = buildClient();
     }
 
-    public static CompletableFuture<ServiceDeliverySession.DeliveryResult> execute(URI uri, FidesmoCard card, ClientAuthentication authentication) {
+    public static CompletableFuture<ServiceDeliverySession.DeliveryResult> execute(URI uri, BIBO card, ClientAuthentication authentication) {
         return new WsClient(uri, card, authentication).run();
     }
 
@@ -78,13 +78,12 @@ public class WsClient {
             public void onMessage(String data) {
                 try {
                     processCommand(mapper.readTree(data));
-                } catch (IOException | DecoderException | CardException e) {
-                    
+                } catch (IOException | DecoderException | BIBOException e) {
                     logger.warn("Error during delivery", e);
 
                     respondWithStatus("CLIENT_ERROR", Optional.of(e.getMessage()));
 
-                    deliveryResult.complete(new ServiceDeliverySession.DeliveryResult(sessionId, false, e.getMessage(), Optional.empty()));
+                    deliveryResult.complete(new ServiceDeliverySession.DeliveryResult(sessionId, false, e.getMessage(), null));
 
                     close();
                 }
@@ -126,7 +125,7 @@ public class WsClient {
         });
     }
 
-    protected void processCommand(JsonNode node) throws IOException, DecoderException, CardException {
+    protected void processCommand(JsonNode node) throws IOException, DecoderException {
         switch (node.get("type").asText()) {
             case "id":
                 sessionId = node.get("value").asText();
@@ -137,7 +136,7 @@ public class WsClient {
 
                 for (JsonNode jsonNode : node.get("commands")) {
                     byte[] command = Hex.decodeHex(jsonNode.asText());
-                    responses.add(Hex.encodeHexString(card.transmit(command)));
+                    responses.add(Hex.encodeHexString(card.transceive(command)));
                 }
 
                 ObjectNode res = JsonNodeFactory.instance.objectNode();
@@ -150,7 +149,7 @@ public class WsClient {
                 String message = node.get("message").asText("");
 
                 deliveryResult.complete(
-                    new ServiceDeliverySession.DeliveryResult(sessionId, "OK".equals(code), message, Optional.empty())
+                    new ServiceDeliverySession.DeliveryResult(sessionId, "OK".equals(code), message, null)
                 );
 
                 client.close();

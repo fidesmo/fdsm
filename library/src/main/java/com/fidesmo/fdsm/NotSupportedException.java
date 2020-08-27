@@ -23,6 +23,7 @@ package com.fidesmo.fdsm;
 
 // Handy marker to indicate that a given scenario is not supported by this application
 public class NotSupportedException extends FDSMException {
+    private static final long serialVersionUID = 1293821614457263879L;
     NotSupportedException(String message) {
         super(message);
     }

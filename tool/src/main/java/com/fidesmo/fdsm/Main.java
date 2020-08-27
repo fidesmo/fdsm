@@ -21,6 +21,8 @@
  */
 package com.fidesmo.fdsm;
 
+import apdu4j.APDUBIBO;
+import apdu4j.CardBIBO;
 import apdu4j.HexUtils;
 import apdu4j.TerminalManager;
 import apdu4j.terminals.LoggingCardTerminal;
@@ -32,9 +34,7 @@ import pro.javacard.AID;
 import pro.javacard.CAPFile;
 
 import javax.crypto.Cipher;
-import javax.smartcardio.Card;
-import javax.smartcardio.CardException;
-import javax.smartcardio.CardTerminal;
+import javax.smartcardio.*;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -52,7 +52,6 @@ import java.util.stream.Collectors;
 
 public class Main extends CommandLineInterface {
     static final String FDSM_SP = "8e5cdaae";
-    private static FidesmoCard fidesmoCard;
 
     public static void main(String[] argv) {
         System.setProperty("org.slf4j.simpleLogger.showThreadName", "false");
@@ -86,18 +85,13 @@ public class Main extends CommandLineInterface {
                 FidesmoApiClient client = getClient();
 
                 final String states;
-                if (args.hasArgument(OPT_STORE_APPS)) {
-                    switch (args.valueOf(OPT_STORE_APPS)) {
-                        // This is "hidden" from documentation, default to published
-                        case "all":
-                            states = "?states=published,demo,development";
-                            break;
-                        default:
-                            states = "?states=published";
-                    }
+                // This is "hidden" from documentation, default to published
+                if (args.hasArgument(OPT_STORE_APPS) && "all".equals(args.valueOf(OPT_STORE_APPS))) {
+                    states = "?states=published,demo,development";
                 } else {
                     states = "?states=published";
                 }
+
                 JsonNode apps = client.rpc(client.getURI(FidesmoApiClient.APPS_URL, states));
                 if (apps.size() > 0) {
                     List<byte[]> appids = new LinkedList<>();
@@ -240,12 +234,10 @@ public class Main extends CommandLineInterface {
                     terminal = LoggingCardTerminal.getInstance(terminal);
                 }
                 Card card = terminal.connect("*");
+                Optional<byte[]> uid = getUID(card.getBasicChannel());
+                APDUBIBO bibo = new APDUBIBO(CardBIBO.wrap(card));
+                Optional<FidesmoCard> fidesmoMetadata = FidesmoCard.detect(bibo);
 
-                if (args.has(OPT_FAKE) || args.has(OPT_QA)) {
-                    fidesmoCard = FidesmoCard.fakeInstance(card.getBasicChannel());
-                } else {
-                    fidesmoCard = FidesmoCard.getInstance(card.getBasicChannel());
-                }
                 // Allows to run with any card
                 if (args.has(OPT_QA)) {
                     String number = Integer.toString(new Random().nextInt(900000) + 100000).substring(0, 6);
@@ -256,7 +248,7 @@ public class Main extends CommandLineInterface {
                     }
                     FormHandler formHandler = getCommandLineFormHandler();
 
-                    ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, FDSM_SP, number, formHandler);
+                    ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(bibo, fidesmoMetadata.orElseGet(FidesmoCard::dummy), client, FDSM_SP, number, formHandler);
 
                     if (args.has(OPT_TIMEOUT))
                         cardSession.setTimeout(args.valueOf(OPT_TIMEOUT));
@@ -271,28 +263,35 @@ public class Main extends CommandLineInterface {
 
                 // Can be used always
                 if (args.has(OPT_CARD_INFO)) {
-                    System.out.format("CIN: %s BATCH: %s UID: %s%n",
-                            printableCIN(fidesmoCard.getCIN()),
-                            HexUtils.bin2hex(fidesmoCard.getBatchId()),
-                            fidesmoCard.getUID().map(i -> HexUtils.bin2hex(i)).orElse("N/A"));
-                    if (!args.has(OPT_OFFLINE)) {
-                        JsonNode device = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(fidesmoCard.getCIN()), new BigInteger(1, fidesmoCard.getBatchId()).toString()));
-                        byte[] iin = HexUtils.decodeHexString_imp(device.get("iin").asText());
-                        // Read capabilities
-                        JsonNode capabilities = device.get("description").get("capabilities");
-                        int platformVersion = capabilities.get("platformVersion").asInt();
-                        int platformType = capabilities.get("osTypeVersion").asInt();
+                    if (fidesmoMetadata.isPresent()) {
+                        FidesmoCard fidesmoCard = fidesmoMetadata.get();
+                        System.out.format("CIN: %s BATCH: %s UID: %s%n",
+                                printableCIN(fidesmoCard.getCIN()),
+                                HexUtils.bin2hex(fidesmoCard.getBatchId()),
+                                uid.map(HexUtils::bin2hex).orElse("N/A"));
+                        if (!args.has(OPT_OFFLINE)) {
+                            JsonNode device = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(fidesmoCard.getCIN()), new BigInteger(1, fidesmoCard.getBatchId()).toString()));
+                            byte[] iin = HexUtils.decodeHexString_imp(device.get("iin").asText());
+                            // Read capabilities
+                            JsonNode capabilities = device.get("description").get("capabilities");
+                            int platformVersion = capabilities.get("platformVersion").asInt();
+                            int platformType = capabilities.get("osTypeVersion").asInt();
 
-                        System.out.format("IIN: %s %n",
-                                verbose ? String.format(" IIN: %s", HexUtils.bin2hex(iin)) : "");
-                        // For platforms that are not yet supported by fdsm
-                        String platform = FidesmoCard.ChipPlatform.valueOf(platformType).toString();
-                        System.out.format("OS type: %s (platform v%d)%n", platform, platformVersion);
+                            System.out.format("IIN: %s %n",
+                                    verbose ? String.format(" IIN: %s", HexUtils.bin2hex(iin)) : "");
+                            // For platforms that are not yet supported by fdsm
+                            String platform = FidesmoCard.ChipPlatform.valueOf(platformType).toString();
+                            System.out.format("OS type: %s (platform v%d)%n", platform, platformVersion);
+                        }
+                    } else {
+                        System.out.println("UID: " + uid.map(HexUtils::bin2hex).orElse("N/A"));
+                        System.out.println("Not a Fidesmo device");
                     }
                 }
+                FidesmoCard fidesmoCard = fidesmoMetadata.orElseThrow(() -> new IllegalStateException("Need a Fidesmo device to continue!"));
 
                 if (args.has(OPT_CARD_APPS)) {
-                    List<byte[]> apps = fidesmoCard.listApps();
+                    List<byte[]> apps = FidesmoCard.listApps(bibo);
                     if (apps.size() > 0) {
                         printApps(queryApps(client, apps, verbose), System.out, verbose);
                     } else {
@@ -302,7 +301,7 @@ public class Main extends CommandLineInterface {
                     String service = args.valueOf(OPT_RUN);
 
                     if (service.startsWith("ws://") || service.startsWith("wss://")) {
-                        boolean success = WsClient.execute(new URI(service), fidesmoCard, auth).join().isSuccess();
+                        boolean success = WsClient.execute(new URI(service), bibo, auth).join().isSuccess();
 
                         if (!success) {
                             fail("Fail to run a script");
@@ -326,7 +325,7 @@ public class Main extends CommandLineInterface {
                             throw new IllegalArgumentException("Need Application ID: " + args.valueOf(OPT_RUN));
                         }
 
-                        final ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, appId, service, formHandler);
+                        final ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(bibo, fidesmoCard, client, appId, service, formHandler);
 
                         if (args.has(OPT_TIMEOUT))
                             cardSession.setTimeout(args.valueOf(OPT_TIMEOUT));
@@ -384,12 +383,12 @@ public class Main extends CommandLineInterface {
                         if (!present) {
                             authenticatedClient.upload(cap);
                         }
-                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, getAppId(), recipe);
+                        FidesmoCard.deliverRecipe(bibo, fidesmoCard, authenticatedClient, formHandler, getAppId(), recipe);
                     } else if (args.has(OPT_UNINSTALL)) {
                         String s = args.valueOf(OPT_UNINSTALL);
                         Path p = Paths.get(s);
 
-                        AID aid = null;
+                        AID aid;
                         if (!Files.exists(p)) {
                             try {
                                 aid = AID.fromString(s);
@@ -400,23 +399,23 @@ public class Main extends CommandLineInterface {
                             aid = CAPFile.fromBytes(Files.readAllBytes(p)).getPackageAID();
                         }
                         String recipe = RecipeGenerator.makeDeleteRecipe(aid);
-                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, getAppId(), recipe);
+                        FidesmoCard.deliverRecipe(bibo, fidesmoCard, authenticatedClient, formHandler, getAppId(), recipe);
                     }
 
                     // Can be chained
                     if (args.has(OPT_STORE_DATA)) {
-                        List<byte[]> blobs = args.valuesOf(OPT_STORE_DATA).stream().map(s -> HexUtils.stringToBin(s)).collect(Collectors.toList());
+                        List<byte[]> blobs = args.valuesOf(OPT_STORE_DATA).stream().map(HexUtils::stringToBin).collect(Collectors.toList());
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET));
                         String recipe = RecipeGenerator.makeStoreDataRecipe(applet, blobs);
-                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, getAppId(), recipe);
+                        FidesmoCard.deliverRecipe(bibo, fidesmoCard, authenticatedClient, formHandler, getAppId(), recipe);
                     }
 
                     // Can be chained
                     if (args.has(OPT_SECURE_APDU)) {
-                        List<byte[]> apdus = args.valuesOf(OPT_SECURE_APDU).stream().map(s -> HexUtils.stringToBin(s)).collect(Collectors.toList());
+                        List<byte[]> apdus = args.valuesOf(OPT_SECURE_APDU).stream().map(HexUtils::stringToBin).collect(Collectors.toList());
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET));
                         String recipe = RecipeGenerator.makeSecureTransceiveRecipe(applet, apdus);
-                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, getAppId(), recipe);
+                        FidesmoCard.deliverRecipe(bibo, fidesmoCard, authenticatedClient, formHandler, getAppId(), recipe);
                     }
                 }
             }
@@ -437,8 +436,11 @@ public class Main extends CommandLineInterface {
             fail("No smart card readers: " + (s == null ? e.getMessage() : s));
         } catch (IllegalArgumentException e) {
             fail("Illegal argument: " + e.getMessage());
+        } catch (IllegalStateException e) {
+            fail("Illegal state: " + e.getMessage());
         } catch (Exception e) {
-            e.printStackTrace();
+            if (verbose)
+                e.printStackTrace();
             fail("Unknown error: " + e.getMessage());
         }
     }
@@ -510,7 +512,7 @@ public class Main extends CommandLineInterface {
                         out.println("           " + service.name + " - " + service.description);
                     }
                 } else {
-                    out.println("           Services: " + String.join(", ", app.services.stream().map(e -> e.name).collect(Collectors.toList())));
+                    out.println("           Services: " + app.services.stream().map(e -> e.name).collect(Collectors.joining(", ")));
                 }
             }
         }
@@ -533,6 +535,21 @@ public class Main extends CommandLineInterface {
             // Do nothing.
             if (verbose)
                 System.err.println("Warning: could not check for updates: " + e.getMessage());
+        }
+    }
+
+    static Optional<byte[]> getUID(CardChannel channel) throws CardException {
+        // See if we get the UID from ACS(-compatible) and other PCSC v2.0 readers
+        // NOTE: to make sure we get a sane response if the reader does not support
+        // the command, it MUST be called as first command after connecting
+
+        CommandAPDU getUID = new CommandAPDU(HexUtils.hex2bin("FFCA000000"));
+        ResponseAPDU response = channel.transmit(getUID);
+        // Sensibility check: UID size
+        if (response.getSW() == 0x9000 && (response.getData().length == 7 || response.getData().length == 4)) {
+            return Optional.of(response.getData());
+        } else {
+            return Optional.empty();
         }
     }
 

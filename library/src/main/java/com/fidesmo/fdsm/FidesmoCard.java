@@ -21,7 +21,7 @@
  */
 package com.fidesmo.fdsm;
 
-import apdu4j.HexUtils;
+import apdu4j.*;
 import com.payneteasy.tlv.BerTag;
 import com.payneteasy.tlv.BerTlv;
 import com.payneteasy.tlv.BerTlvParser;
@@ -30,11 +30,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pro.javacard.AID;
 
-import javax.security.auth.callback.UnsupportedCallbackException;
-import javax.smartcardio.CardChannel;
-import javax.smartcardio.CardException;
-import javax.smartcardio.CommandAPDU;
-import javax.smartcardio.ResponseAPDU;
 import java.io.IOException;
 import java.net.URI;
 import java.util.*;
@@ -53,8 +48,7 @@ public class FidesmoCard {
         ST31(5);
 
         // TODO Add Gemalto Optelio G277 and NXP JCOP 4 P71 (also to CPLC_PLATFORMS map)
-
-        private int v;
+        private final int v;
 
         ChipPlatform(int v) {
             this.v = v;
@@ -126,36 +120,37 @@ public class FidesmoCard {
             FIDESMO_APP_AID.getBytes(), FIDESMO_PLATFORM_AID.getBytes()
     ));
 
-    private final CardChannel channel;
-    private byte[] uid = null;
-    private byte[] cin = null;
-    private byte[] cplc = null;
-    private byte[] batchId = null;
+    private final byte[] cin;
+    private final byte[] cplc;
+    private final byte[] batchId;
 
-    private FidesmoCard(CardChannel channel) {
-        this.channel = channel;
+    public FidesmoCard(byte[] fid, byte[] cplc, byte[] batchId) {
+        this.cin = fid.clone();
+        this.cplc = cplc == null ? null : cplc.clone();
+        this.batchId = batchId.clone();
     }
 
-    public static FidesmoCard getInstance(CardChannel channel) throws CardException {
-        FidesmoCard card = new FidesmoCard(channel);
-        if (!(card.detectPlatformV2() || card.detectPlatformV3()))
-            throw new IllegalArgumentException("Did not detect a Fidesmo card!");
-        return card;
+    public static FidesmoCard dummy() {
+        return new FidesmoCard(new byte[7], null, new byte[4]);
     }
 
-    public static FidesmoCard fakeInstance(CardChannel channel) {
-        FidesmoCard card = new FidesmoCard(channel);
-        card.uid = new byte[7];
-        card.cin = new byte[7];
-        card.batchId = new byte[7];
-        return card;
+    public static Optional<FidesmoCard> detect(BIBO channel) {
+        APDUBIBO bibo = new APDUBIBO(channel);
+        Optional<FidesmoCard> pv2 = detectPlatformV2(bibo);
+        if (pv2.isPresent())
+            return pv2;
+        Optional<FidesmoCard> pv3 = detectPlatformV3(bibo);
+        if (pv3.isPresent())
+            return pv3;
+        logger.warn("Did not detect a Fidesmo device!");
+        return Optional.empty();
     }
 
-    public boolean deliverRecipe(AuthenticatedFidesmoApiClient client, FormHandler formHandler, String appId, String recipe) throws IOException {
-        return deliverRecipes(client, formHandler, appId, Collections.singletonList(recipe));
+    public static boolean deliverRecipe(BIBO bibo, FidesmoCard card, AuthenticatedFidesmoApiClient client, FormHandler formHandler, String appId, String recipe) throws IOException {
+        return deliverRecipes(bibo, card, client, formHandler, appId, Collections.singletonList(recipe));
     }
 
-    public boolean deliverRecipes(AuthenticatedFidesmoApiClient client, FormHandler formHandler, String appId, List<String> recipes) throws IOException {
+    public static boolean deliverRecipes(BIBO bibo, FidesmoCard card, AuthenticatedFidesmoApiClient client, FormHandler formHandler, String appId, List<String> recipes) throws IOException {
 
         for (String recipe : recipes) {
             final String uuid = UUID.randomUUID().toString();
@@ -163,7 +158,7 @@ public class FidesmoCard {
             URI uri = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, appId, uuid);
             client.put(uri, recipe);
 
-            ServiceDeliverySession session = ServiceDeliverySession.getInstance(this, client, appId, uuid, formHandler);
+            ServiceDeliverySession session = ServiceDeliverySession.getInstance(bibo, card, client, appId, uuid, formHandler);
 
             // Remove
             session.cleanups.add(() -> {
@@ -181,10 +176,6 @@ public class FidesmoCard {
         return true;
     }
 
-    public byte[] transmit(byte[] bytes) throws CardException {
-        return channel.transmit(new CommandAPDU(bytes)).getBytes();
-    }
-
     public byte[] getCIN() {
         return cin.clone();
     }
@@ -197,120 +188,111 @@ public class FidesmoCard {
         return detectPlatform(cplc);
     }
 
-    public Optional<byte[]> getUID() {
-        return Optional.ofNullable(uid);
-    }
-
-    public boolean detectPlatformV2() throws CardException {
+    public static Optional<FidesmoCard> detectPlatformV2(APDUBIBO channel) {
         // Select ISD
         CommandAPDU selectISD = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, 0x00);
         ResponseAPDU response = channel.transmit(selectISD);
         if (response.getSW() != 0x9000)
-            return false;
+            return Optional.empty();
 
-        // See if we get the UID from ACS(-compatible) readers
-        // NOTE: to make sure we get a sane response if the reader does not support
-        // the command, ISD MUST be selected before this command
-        CommandAPDU getUID = new CommandAPDU(HexUtils.hex2bin("FFCA000000"));
-        response = channel.transmit(getUID);
-        // Sensibility check: UID size
-        if (response.getSW() == 0x9000 && response.getData().length <= 7) {
-            uid = response.getData();
-        }
-        // Get CPLC
+        // Get CPLC (always available for PV2)
         CommandAPDU getCPLC = new CommandAPDU(0x80, 0xCA, 0x9F, 0x7F, 0x00);
         response = channel.transmit(getCPLC);
         if (response.getSW() != 0x9000 || response.getData().length == 0)
-            return false;
+            return Optional.empty();
         byte[] data = response.getData();
+
         // Remove tag, if present
         if (data[0] == (byte) 0x9f && data[1] == (byte) 0x7f && data[2] == (byte) 0x2A)
             data = Arrays.copyOfRange(data, 3, data.length);
-        cplc = data;
+        final byte[] cplc = data;
 
         // Read CIN
         CommandAPDU getDataCIN = new CommandAPDU(0x00, 0xCA, 0x00, 0x45, 0x00);
         response = channel.transmit(getDataCIN);
         if (response.getSW() != 0x9000)
-            return false;
-        cin = response.getData();
+            return Optional.empty();
+        final byte[] cin = response.getData();
 
         // Read batchID
         CommandAPDU selectFidesmoBatch = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, FIDESMO_BATCH_AID.getBytes());
         response = channel.transmit(selectFidesmoBatch);
         if (response.getSW() != 0x9000)
-            return false;
+            return Optional.empty();
         BerTlvParser parser = new BerTlvParser();
         BerTlvs tlvs = parser.parse(fixup(response.getData()));
         BerTlv batchIdTag = tlvs.find(new BerTag(0x42));
+        byte[] batchId;
         if (batchIdTag != null) {
             batchId = batchIdTag.getBytesValue();
+        } else {
+            batchId = new byte[0]; // FIXME: this should be error?
         }
-        return true;
+        return Optional.of(new FidesmoCard(cin, cplc, batchId));
     }
 
-    public boolean detectPlatformV3() throws CardException {
+    public static Optional<FidesmoCard> detectPlatformV3(APDUBIBO channel) {
         // Select ISD
         CommandAPDU selectISD = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, 0x00);
         ResponseAPDU response = channel.transmit(selectISD);
+        final byte[] cplc;
         if (response.getSW() == 0x9000) {
             // Get CPLC
             CommandAPDU getCPLC = new CommandAPDU(0x80, 0xCA, 0x9F, 0x7F, 0x00);
             response = channel.transmit(getCPLC);
             if (response.getSW() != 0x9000 || response.getData().length == 0)
-                return false;
+                return Optional.empty();
             byte[] data = response.getData();
             // Remove tag, if present
             if (data[0] == (byte) 0x9f && data[1] == (byte) 0x7f && data[2] == (byte) 0x2A)
                 data = Arrays.copyOfRange(data, 3, data.length);
             cplc = data;
-        }
-
-        // See if we get the UID from ACS(-compatible) readers
-        // NOTE: to make sure we get a sane response if the reader does not support
-        // the command, ISD MUST be selected before this command
-        CommandAPDU getUID = new CommandAPDU(HexUtils.hex2bin("FFCA000000"));
-        response = channel.transmit(getUID);
-        // Sensibility check: UID size
-        if (response.getSW() == 0x9000 && response.getData().length <= 7) {
-            uid = response.getData();
+        } else {
+            cplc = null;
         }
 
         // Select Platform applet
         CommandAPDU selectFidesmoPlatform = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, FIDESMO_PLATFORM_AID.getBytes());
         response = channel.transmit(selectFidesmoPlatform);
         if (response.getSW() != 0x9000)
-            return false;
+            return Optional.empty();
         BerTlvParser parser = new BerTlvParser();
         BerTlvs tlvs = parser.parse(fixup(response.getData()));
 
         // Read BatchId
+        final byte[] batchId;
         BerTlv batchIdTag = tlvs.find(new BerTag(0x42));
         if (batchIdTag != null) {
             batchId = batchIdTag.getBytesValue();
+        } else {
+            return Optional.empty();
         }
 
         // Read CIN
+        final byte[] cin;
         BerTlv cinTag = tlvs.find(new BerTag(0x45));
         if (cinTag != null) {
             cin = cinTag.getBytesValue();
+        } else {
+            return Optional.empty();
         }
 
-        return true;
+        return Optional.of(new FidesmoCard(cin, cplc, batchId));
     }
 
-    private boolean valid(byte[] v) {
+    private static boolean valid(byte[] v) {
         try {
             BerTlvParser parser = new BerTlvParser();
             parser.parse(v);
             return true;
         } catch (RuntimeException e) {
+            // ignore
         }
         return false;
     }
 
     // Fix various known issues
-    private byte[] fixup(byte[] v) {
+    private static byte[] fixup(byte[] v) {
         if (!valid(v)) {
             // trailing 0x00; remove
             if (v.length > 0 && v[v.length - 1] == 0x00 && valid(Arrays.copyOf(v, v.length - 1))) {
@@ -326,7 +308,7 @@ public class FidesmoCard {
         return v;
     }
 
-    public List<byte[]> listApps() throws CardException {
+    public static List<byte[]> listApps(APDUBIBO channel) {
         // Fidesmo RID
         final byte[] prefix = HexUtils.hex2bin("A00000061701");
         List<byte[]> apps = new LinkedList<>();
