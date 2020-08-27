@@ -39,8 +39,6 @@ public class FidesmoCard {
     private final static Logger logger = LoggerFactory.getLogger(FidesmoCard.class);
 
     public enum ChipPlatform {
-
-        UNKNOWN(0),
         JCOP242R1(1),
         JCOP242R2(2),
         JCOP3EMV(3),
@@ -54,12 +52,12 @@ public class FidesmoCard {
             this.v = v;
         }
 
-        public static ChipPlatform valueOf(int v) {
+        public static Optional<ChipPlatform> valueOf(int v) {
             for (ChipPlatform t : values()) {
                 if (t.v == v)
-                    return t;
+                    return Optional.of(t);
             }
-            return UNKNOWN;
+            return Optional.empty();
         }
     }
 
@@ -103,12 +101,12 @@ public class FidesmoCard {
     }
 
     // Given CPLC, detect the platform from enumeration
-    public static ChipPlatform detectPlatform(byte[] cplc) {
+    public static Optional<ChipPlatform> detectPlatform(byte[] cplc) {
         for (Map.Entry<byte[], ChipPlatform> e : CPLC_PLATFORMS.entrySet()) {
             if (Arrays.equals(e.getKey(), Arrays.copyOf(cplc, e.getKey().length)))
-                return e.getValue();
+                return Optional.of(e.getValue());
         }
-        return ChipPlatform.UNKNOWN;
+        return Optional.empty();
     }
 
     // Capabilities applet AID
@@ -182,10 +180,6 @@ public class FidesmoCard {
 
     public byte[] getBatchId() {
         return batchId.clone();
-    }
-
-    public ChipPlatform getPlatform() {
-        return detectPlatform(cplc);
     }
 
     public static Optional<FidesmoCard> detectPlatformV2(APDUBIBO channel) {
