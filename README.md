@@ -6,7 +6,7 @@ FDSM is _the_ developer's Swiss Army Knife for working with a [Fidesmo device](h
 
 You will need the following:
 - Latest [Java 1.8](http://www.oracle.com/technetwork/java/javase/downloads/jre8-downloads-2133155.html) for running the app
-- a [Fidesmo Developer account](https://developer.fidesmo.com) for your `$FIDESMO_APP_ID` and `$FIDESMO_APP_KEY`
+- a [Fidesmo Developer account](https://developer.fidesmo.com) for your `$FIDESMO_AUTH` (`appId:appKey`)
 - a Fidesmo device (get one from the [shop](http://shop.fidesmo.com))
 - a PC/SC NFC reader (unless your developer device is the [Yubikey NEO with Fidesmo](http://shop.fidesmo.com/product/yubikey-neo-with-fidesmo))
 
@@ -44,7 +44,5 @@ To produce a build, execute `./mvnw package` and use the generated `target/fdsm.
 command line arguments but some behavior can be tuned by setting environment
 variables.
 
-- `FIDESMO_APP_ID` - the app ID from developer portal, equivalent of using `--app-id`
-- `FIDESMO_APP_KEY` - the app key from developer portal, equivalent of using `--app-key`
-- `FIDESMO_DEVELOPER` - set to `true` to show otherwise hidden apps
+- `FIDESMO_AUTH` - the app ID and app key from developer portal in `appId:appKey` format, equivalent of using `--auth appId:appKey`
 - `FIDESMO_API_URL` - the URL of the the Fidesmo backend (do not change if unsure)

@@ -30,9 +30,7 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import pro.javacard.AID;
 import pro.javacard.CAPFile;
-import pro.javacard.CAPPackage;
 
-import javax.print.DocFlavor;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -45,14 +43,6 @@ public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
 
     private AuthenticatedFidesmoApiClient(ClientAuthentication auth, PrintStream apidump) {
         super(auth, apidump);
-    }
-
-    public static AuthenticatedFidesmoApiClient getInstance(String user, String password) throws IllegalArgumentException {
-        return new AuthenticatedFidesmoApiClient(ClientAuthentication.forUserPassword(user, password), null);
-    }
-
-    public static AuthenticatedFidesmoApiClient getInstance(String user, String password, PrintStream apidump) throws IllegalArgumentException {
-        return new AuthenticatedFidesmoApiClient(ClientAuthentication.forUserPassword(user, password), apidump);
     }
 
     public static AuthenticatedFidesmoApiClient getInstance(ClientAuthentication auth, PrintStream apidump) throws IllegalArgumentException {
@@ -72,7 +62,7 @@ public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
 
     @Deprecated
     public String getAppId() {
-        return authentication.getUsername();
+        return authentication.getUsername().orElseThrow(() -> new IllegalArgumentException("Application ID not present!"));
     }
 
     // Upload a CAP file
@@ -107,14 +97,9 @@ public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
         transmit(post);
     }
 
-
     private static boolean isJCOPX(CAPFile cap, String version) {
         AID jcop = new AID(HexUtils.hex2bin("D276000085494A434F5058"));
-        for (CAPPackage p : cap.getImports()) {
-            if (p.getAid().equals(jcop) && p.getVersionString().equals(version))
-                return true;
-        }
-        return false;
+        return cap.getImports().stream().filter(p -> p.getAid().equals(jcop) && p.getVersionString().equals(version)).findFirst().isPresent();
     }
 
     public static boolean isJCOP242R2(CAPFile cap) {

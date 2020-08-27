@@ -29,6 +29,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.http.HttpHeaders;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 import org.slf4j.Logger;
@@ -59,7 +60,7 @@ public class WsClient {
 
     public WsClient(URI uri, FidesmoCard card, ClientAuthentication authentication) {
         this.uri = uri;
-        this.headers = authentication != null ? Collections.singletonMap("Authorization", authentication.toAuthenticationHeader()) : null;
+        this.headers = authentication != null ? Collections.singletonMap(HttpHeaders.AUTHORIZATION, authentication.toAuthenticationHeader()) : null;
         this.card = card;
         this.client = buildClient();
     }

@@ -26,19 +26,15 @@ import apdu4j.TerminalManager;
 import apdu4j.terminals.LoggingCardTerminal;
 import com.fasterxml.jackson.databind.JsonNode;
 import jnasmartcardio.Smartcardio;
-
 import org.apache.commons.codec.binary.Hex;
-import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.HttpResponseException;
 import pro.javacard.AID;
 import pro.javacard.CAPFile;
 
 import javax.crypto.Cipher;
-import javax.security.auth.callback.UnsupportedCallbackException;
 import javax.smartcardio.Card;
 import javax.smartcardio.CardException;
 import javax.smartcardio.CardTerminal;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -57,7 +53,6 @@ import java.util.stream.Collectors;
 public class Main extends CommandLineInterface {
     static final String FDSM_SP = "8e5cdaae";
     private static FidesmoCard fidesmoCard;
-    static boolean deprecationWarningShown = false;
 
     public static void main(String[] argv) {
         System.setProperty("org.slf4j.simpleLogger.showThreadName", "false");
@@ -68,12 +63,12 @@ public class Main extends CommandLineInterface {
         try {
             // Inspect arguments
             parseArguments(argv);
-            // Show useful stuff
-            if (args.has(OPT_VERBOSE))
-                System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "info");
-
             // Check environment
             inspectEnvironment(args);
+
+            // Show useful stuff
+            if (verbose)
+                System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "info");
 
             // Check for version
             if (args.has(OPT_VERSION)) {
@@ -90,7 +85,20 @@ public class Main extends CommandLineInterface {
             if (args.has(OPT_STORE_APPS)) {
                 FidesmoApiClient client = getClient();
 
-                JsonNode apps = client.rpc(client.getURI(FidesmoApiClient.APPS_URL));
+                final String states;
+                if (args.hasArgument(OPT_STORE_APPS)) {
+                    switch (args.valueOf(OPT_STORE_APPS)) {
+                        // This is "hidden" from documentation, default to published
+                        case "all":
+                            states = "?states=published,demo,development";
+                            break;
+                        default:
+                            states = "?states=published";
+                    }
+                } else {
+                    states = "?states=published";
+                }
+                JsonNode apps = client.rpc(client.getURI(FidesmoApiClient.APPS_URL, states));
                 if (apps.size() > 0) {
                     List<byte[]> appids = new LinkedList<>();
                     for (JsonNode appid : apps) {
@@ -99,7 +107,7 @@ public class Main extends CommandLineInterface {
                     printApps(queryApps(client, appids, verbose), System.out, verbose);
                     success();
                 } else {
-                    success("No apps in the appstore!");
+                    fail("No apps in the appstore!?");
                 }
             }
 
@@ -116,12 +124,11 @@ public class Main extends CommandLineInterface {
                             CAPFile tmp = CAPFile.fromBytes(Files.readAllBytes(candidate));
                             id = HexUtils.bin2hex(tmp.getLoadFileDataHash("SHA-256"));
                         } else {
-                            fail("Not a SHA-256: " + id);
+                            throw new IllegalArgumentException("Not a SHA-256: " + id);
                         }
                     }
                     try {
-                        // XXX: case-sensitive
-                        client.delete(client.getURI(FidesmoApiClient.ELF_ID_URL, id.toLowerCase()));
+                        client.delete(client.getURI(FidesmoApiClient.ELF_ID_URL, id));
                         System.out.println(id + " deleted.");
                     } catch (HttpResponseException e) {
                         if (e.getStatusCode() == 404) {
@@ -166,7 +173,7 @@ public class Main extends CommandLineInterface {
 
                 // List applets
                 if (args.has(OPT_LIST_RECIPES)) {
-                    JsonNode recipes = client.rpc(client.getURI(FidesmoApiClient.RECIPE_SERVICES_URL, appId));
+                    JsonNode recipes = client.rpc(client.getURI(FidesmoApiClient.RECIPE_SERVICES_URL, getAppId()));
                     if (recipes.size() > 0) {
                         System.out.println(FidesmoApiClient.mapper.writer(FidesmoApiClient.printer).writeValueAsString(recipes));
                     } else {
@@ -176,13 +183,13 @@ public class Main extends CommandLineInterface {
 
                 // Cleanup recipes
                 if (args.has(OPT_CLEANUP)) {
-                    JsonNode recipes = client.rpc(client.getURI(FidesmoApiClient.RECIPE_SERVICES_URL, appId));
+                    JsonNode recipes = client.rpc(client.getURI(FidesmoApiClient.RECIPE_SERVICES_URL, getAppId()));
                     int removed = 0;
                     if (recipes.size() > 0) {
                         for (JsonNode r : recipes) {
                             try {
                                 UUID uuid = UUID.fromString(r.asText());
-                                URI recipe = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, appId, uuid.toString());
+                                URI recipe = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, getAppId(), uuid.toString());
                                 client.delete(recipe);
                                 removed = removed + 1;
                             } catch (IllegalArgumentException e) {
@@ -220,7 +227,7 @@ public class Main extends CommandLineInterface {
                         }
                     }
                     if (terminal == null) {
-                        fail(String.format("Reader \"%s\" not found", reader));
+                        throw new IllegalArgumentException(String.format("Reader \"%s\" not found", reader));
                     }
                 } else {
                     List<CardTerminal> candidates = TerminalManager.byAID(FidesmoCard.FIDESMO_CARD_AIDS);
@@ -269,7 +276,6 @@ public class Main extends CommandLineInterface {
                             HexUtils.bin2hex(fidesmoCard.getBatchId()),
                             fidesmoCard.getUID().map(i -> HexUtils.bin2hex(i)).orElse("N/A"));
                     if (!args.has(OPT_OFFLINE)) {
-                        boolean showIIN = FidesmoApiClient.isDeveloperMode() || args.has(OPT_VERBOSE);
                         JsonNode device = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(fidesmoCard.getCIN()), new BigInteger(1, fidesmoCard.getBatchId()).toString()));
                         byte[] iin = HexUtils.decodeHexString_imp(device.get("iin").asText());
                         // Read capabilities
@@ -278,7 +284,7 @@ public class Main extends CommandLineInterface {
                         int platformType = capabilities.get("osTypeVersion").asInt();
 
                         System.out.format("IIN: %s %n",
-                                showIIN ? String.format(" IIN: %s", HexUtils.bin2hex(iin)) : "");
+                                verbose ? String.format(" IIN: %s", HexUtils.bin2hex(iin)) : "");
                         // For platforms that are not yet supported by fdsm
                         String platform = FidesmoCard.ChipPlatform.valueOf(platformType).toString();
                         System.out.format("OS type: %s (platform v%d)%n", platform, platformVersion);
@@ -292,17 +298,11 @@ public class Main extends CommandLineInterface {
                     } else {
                         success("No applications");
                     }
-                } else if (args.has(OPT_DELIVER) || args.has(OPT_RUN)) {
-                    String service;
-                    if (args.has(OPT_DELIVER)) {
-                        System.err.println("--deliver is deprecated for --run. Please update your scripts");
-                        service = args.valueOf(OPT_DELIVER);
-                    } else {
-                        service = args.valueOf(OPT_RUN);
-                    }
+                } else if (args.has(OPT_RUN)) {
+                    String service = args.valueOf(OPT_RUN);
 
                     if (service.startsWith("ws://") || service.startsWith("wss://")) {
-                        boolean success = WsClient.execute(new URI(service), fidesmoCard, getAuthentication()).join().isSuccess();
+                        boolean success = WsClient.execute(new URI(service), fidesmoCard, auth).join().isSuccess();
 
                         if (!success) {
                             fail("Fail to run a script");
@@ -312,18 +312,18 @@ public class Main extends CommandLineInterface {
 
                     } else {
                         FormHandler formHandler = getCommandLineFormHandler();
-
+                        String appId = null;
                         if (service.contains("/")) {
                             String[] bits = service.split("/");
                             if (bits.length == 2 && bits[0].length() == 8) {
                                 service = bits[1];
                                 appId = bits[0];
                             } else {
-                                fail("Invalid argument: " + service);
+                                throw new IllegalArgumentException("Invalid format for service: " + service);
                             }
                         }
                         if (appId == null) {
-                            fail("Need Application ID");
+                            throw new IllegalArgumentException("Need Application ID: " + args.valueOf(OPT_RUN));
                         }
 
                         final ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(fidesmoCard, client, appId, service, formHandler);
@@ -344,8 +344,8 @@ public class Main extends CommandLineInterface {
                     checkVersions(authenticatedClient); // Always check versions
                     FormHandler formHandler = getCommandLineFormHandler();
 
-                    if (appId == null) {
-                        fail("Application ID is required. Use --appId or FIDESMO_APP_ID");
+                    if (!auth.getUsername().isPresent()) {
+                        throw new IllegalArgumentException("Application ID is required. Use --auth or FIDESMO_AUTH with appId:appKey format");
                     }
 
                     if (args.has(OPT_INSTALL)) {
@@ -354,7 +354,7 @@ public class Main extends CommandLineInterface {
                         final AID applet;
                         if (cap.getAppletAIDs().size() > 1) {
                             if (!args.has(OPT_APPLET))
-                                fail("Must specify --applet with multiple applets in CAP!");
+                                throw new IllegalArgumentException("Must specify --applet with multiple applets in CAP!");
                             applet = AID.fromString(args.valueOf(OPT_APPLET));
                         } else {
                             applet = cap.getAppletAIDs().get(0);
@@ -369,7 +369,7 @@ public class Main extends CommandLineInterface {
                             params = HexUtils.stringToBin(args.valueOf(OPT_PARAMS));
                             // Restriction
                             if (params.length > 0 && params[0] == (byte) 0xC9) {
-                                fail("Installation parameters must be without C9 tag");
+                                throw new IllegalArgumentException("Installation parameters must be without C9 tag");
                             }
                         }
                         String recipe = RecipeGenerator.makeInstallRecipe(cap.getLoadFileDataHash("SHA-256"), applet, instance, params);
@@ -384,27 +384,23 @@ public class Main extends CommandLineInterface {
                         if (!present) {
                             authenticatedClient.upload(cap);
                         }
-                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, appId, recipe);
+                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, getAppId(), recipe);
                     } else if (args.has(OPT_UNINSTALL)) {
                         String s = args.valueOf(OPT_UNINSTALL);
                         Path p = Paths.get(s);
-
-                        if (appId == null) {
-                            fail("Application ID is required. Use --appId or FIDESMO_APP_ID");
-                        }
 
                         AID aid = null;
                         if (!Files.exists(p)) {
                             try {
                                 aid = AID.fromString(s);
                             } catch (IllegalArgumentException e) {
-                                fail("Not a file or AID: " + s);
+                                throw new IllegalArgumentException("Not a file or AID: " + s);
                             }
                         } else {
                             aid = CAPFile.fromBytes(Files.readAllBytes(p)).getPackageAID();
                         }
                         String recipe = RecipeGenerator.makeDeleteRecipe(aid);
-                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, appId, recipe);
+                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, getAppId(), recipe);
                     }
 
                     // Can be chained
@@ -412,7 +408,7 @@ public class Main extends CommandLineInterface {
                         List<byte[]> blobs = args.valuesOf(OPT_STORE_DATA).stream().map(s -> HexUtils.stringToBin(s)).collect(Collectors.toList());
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET));
                         String recipe = RecipeGenerator.makeStoreDataRecipe(applet, blobs);
-                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, appId, recipe);
+                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, getAppId(), recipe);
                     }
 
                     // Can be chained
@@ -420,7 +416,7 @@ public class Main extends CommandLineInterface {
                         List<byte[]> apdus = args.valuesOf(OPT_SECURE_APDU).stream().map(s -> HexUtils.stringToBin(s)).collect(Collectors.toList());
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET));
                         String recipe = RecipeGenerator.makeSecureTransceiveRecipe(applet, apdus);
-                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, appId, recipe);
+                        fidesmoCard.deliverRecipe(authenticatedClient, formHandler, getAppId(), recipe);
                     }
                 }
             }
@@ -469,26 +465,6 @@ public class Main extends CommandLineInterface {
                 // It's fine to fail to remove the hook if shutdown is already in progress
             }
         }
-    }
-
-    private static ClientAuthentication getAuthentication() {
-        if (args.has(OPT_AUTH)) {
-            return ClientAuthentication.forUserPasswordOrToken(args.valueOf(OPT_AUTH));
-        }
-
-        if (System.getenv().containsKey("FDSM_AUTH")) {
-            return ClientAuthentication.forUserPasswordOrToken(System.getenv("FDSM_AUTH"));
-        }
-
-        if (appId != null && appKey != null) {
-            if (!deprecationWarningShown) {
-                System.err.println("using appId and appKey is deprecated for --auth and $FDSM_AUTH. Please update your scripts");
-                deprecationWarningShown = true;
-            }
-            return ClientAuthentication.forUserPassword(appId, appKey);
-        }
-
-        return null;
     }
 
     private static String printableCIN(byte[] cin) {
@@ -541,7 +517,7 @@ public class Main extends CommandLineInterface {
     }
 
     private static FidesmoApiClient getClient() {
-        return new FidesmoApiClient(getAuthentication(), apiTrace ? System.out : null);
+        return new FidesmoApiClient(apiurl, auth, apiTrace ? System.out : null);
     }
 
     static void checkVersions(FidesmoApiClient client) {
@@ -555,8 +531,8 @@ public class Main extends CommandLineInterface {
             }
         } catch (URISyntaxException | IOException e) {
             // Do nothing.
-            if (FidesmoApiClient.isDeveloperMode())
-                System.err.println("Warning: could not check for updates!");
+            if (verbose)
+                System.err.println("Warning: could not check for updates: " + e.getMessage());
         }
     }
 
@@ -571,7 +547,7 @@ public class Main extends CommandLineInterface {
                     String[] fieldAndValue = pair.split("=");
 
                     if (fieldAndValue.length != 2) {
-                        fail("Wrong format for fields pair: " + pair + ". Required: fieldId=fieldValue,");
+                        throw new IllegalArgumentException("Wrong format for fields pair: " + pair + ". Required: fieldId=fieldValue,");
                     }
 
                     cliFields.put(fieldAndValue[0], fieldAndValue[1]);
@@ -583,11 +559,14 @@ public class Main extends CommandLineInterface {
     }
 
     private static AuthenticatedFidesmoApiClient getAuthenticatedClient() {
-        ClientAuthentication auth = getAuthentication();
         if (auth == null) {
-            fail("Provide authentication either via --auth or $FDSM_AUTH");
+            throw new IllegalArgumentException("Provide authentication either via --auth or $FIDESMO_AUTH");
         }
         return AuthenticatedFidesmoApiClient.getInstance(auth, apiTrace ? System.out : null);
+    }
+
+    private static String getAppId() {
+        return auth.getUsername().orElseThrow(() -> new IllegalArgumentException("Operation requires appId authentication with appKey!"));
     }
 
     private static class FidesmoService {
