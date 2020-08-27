@@ -41,10 +41,8 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.message.BasicHeader;
 
 import java.io.*;
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Map;
@@ -52,8 +50,7 @@ import java.util.Map;
 public class FidesmoApiClient {
     public static final String APIv2 = "https://api.fidesmo.com/v2/";
 
-    // This looks as nice here as it looks in the API
-    public static final String APPS_URL = "apps" + (isDeveloperMode() ? "?development=true" : "");
+    public static final String APPS_URL = "apps%s";
     public static final String APP_INFO_URL = "apps/%s";
     public static final String APP_SERVICES_URL = "apps/%s/services";
 
@@ -89,33 +86,14 @@ public class FidesmoApiClient {
         printer.indentArraysWith(indenter);
     }
 
+    @Deprecated
     public FidesmoApiClient() {
-        this(null, null);
+        this(APIv2, null, null);
     }
 
-    public FidesmoApiClient(PrintStream apidump) {
-        this(null, null, apidump);
-    }
-
-    public FidesmoApiClient(String user, String password, PrintStream apidump) {
-        this((user != null && password != null) ? ClientAuthentication.forUserPassword(user, password) : null, apidump);
-    }
-
-    public FidesmoApiClient(ClientAuthentication authentication, PrintStream apidump) {
+    public FidesmoApiClient(String url, ClientAuthentication authentication, PrintStream apidump) {
+        this.apiurl = url;
         this.authentication = authentication;
-
-        if (System.getenv().containsKey("FIDESMO_API_URL")) {
-            String check;
-            try {
-                check = new URL(System.getenv("FIDESMO_API_URL")).toString();
-            } catch (MalformedURLException e) {
-                // Silently ignore malformed URL-s
-                check = APIv2;
-            }
-            this.apiurl = check;
-        } else {
-            this.apiurl = APIv2;
-        }
 
         this.http = HttpClientBuilder
                 .create()
@@ -123,6 +101,10 @@ public class FidesmoApiClient {
                 .setUserAgent("fdsm/" + getVersion())
                 .build();
         this.apidump = apidump;
+    }
+
+    public FidesmoApiClient(ClientAuthentication authentication, PrintStream apidump) {
+        this(APIv2, authentication, apidump);
     }
 
     public CloseableHttpResponse transmit(HttpRequestBase request) throws IOException {
@@ -229,7 +211,4 @@ public class FidesmoApiClient {
         }
     }
 
-    public static boolean isDeveloperMode() {
-        return System.getenv().getOrDefault("FIDESMO_DEVELOPER", "false").equalsIgnoreCase("true");
-    }
 }

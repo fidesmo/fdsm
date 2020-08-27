@@ -2,6 +2,7 @@ package com.fidesmo.fdsm;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Optional;
 
 public class ClientAuthentication {
     private final String authentication;
@@ -13,17 +14,15 @@ public class ClientAuthentication {
         this.authentication = auth;
     }
 
-    public boolean isToken() {
-        return !isCredentials();
-    }
-
     public boolean isCredentials() {
-        return authentication.contains(":");
+        return getUsername().isPresent();
     }
 
-    public String getUsername() {
-        if (!isCredentials()) return null;
-        return authentication.split(":")[0];
+    public Optional<String> getUsername() {
+        String[] creds = authentication.split(":");
+        if (creds.length == 2)
+            return Optional.ofNullable(creds[0]);
+        return Optional.empty();
     }
 
     public static ClientAuthentication forToken(String token) {
@@ -44,7 +43,7 @@ public class ClientAuthentication {
         if (auth.contains(":")) {
             String[] creds = auth.split(":");
             if (creds.length != 2) {
-                throw new IllegalArgumentException("Invalid user name and password format");
+                throw new IllegalArgumentException("Invalid username and password format");
             }
             return forUserPassword(creds[0], creds[1]);
         } else {
@@ -53,10 +52,10 @@ public class ClientAuthentication {
     }
 
     public String toAuthenticationHeader() {
-        if (isToken()) {
-            return "Bearer " + authentication;
-        } else {
+        if (isCredentials()) {
             return "Basic " + Base64.getEncoder().encodeToString(authentication.getBytes(StandardCharsets.UTF_8));
+        } else {
+            return "Bearer " + authentication;
         }
     }
 }

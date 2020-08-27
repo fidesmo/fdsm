@@ -151,23 +151,6 @@ public class FidesmoCard {
         return card;
     }
 
-
-    /**
-     * Deprecated in favour of deliverRecipes(AuthenticatedFidesmoApiClient, FormHandler, String, List<String>)
-     */
-    @Deprecated()
-    public boolean deliverRecipe(AuthenticatedFidesmoApiClient client, FormHandler formHandler, String recipe) throws IOException {
-        return deliverRecipe(client, formHandler, client.getAppId(), recipe);
-    }
-
-    /**
-     * Deprecated in favour of deliverRecipes(AuthenticatedFidesmoApiClient, FormHandler, String, List<String>)
-     */
-    @Deprecated()
-    public boolean deliverRecipes(AuthenticatedFidesmoApiClient client, FormHandler formHandler, List<String> recipes) throws IOException {
-        return deliverRecipes(client, formHandler, client.getAppId(), recipes);
-    }
-
     public boolean deliverRecipe(AuthenticatedFidesmoApiClient client, FormHandler formHandler, String appId, String recipe) throws IOException {
         return deliverRecipes(client, formHandler, appId, Collections.singletonList(recipe));
     }
@@ -188,7 +171,7 @@ public class FidesmoCard {
                     logger.info("Removing temporary recipe {} ...", uuid);
                     client.delete(uri);
                 } catch (IOException e) {
-                    logger.warn("Failed to remove temporary recipe {}", uuid);
+                    logger.warn("Failed to remove temporary recipe {}: {}", uuid, e.getMessage());
                 }
             });
             if (!session.get().isSuccess()) {
