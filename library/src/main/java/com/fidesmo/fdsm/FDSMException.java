@@ -22,6 +22,7 @@
 package com.fidesmo.fdsm;
 
 public class FDSMException extends RuntimeException {
+    public static final long serialVersionUID = -8067674386438803572L;
     FDSMException(String message) {
         super(message);
     }

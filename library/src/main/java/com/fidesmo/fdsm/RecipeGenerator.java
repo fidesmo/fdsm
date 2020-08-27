@@ -104,7 +104,7 @@ public class RecipeGenerator {
         action.put("endpoint", "/secure-transceive");
         ObjectNode content = action.putObject("content");
         content.put("application", app.toString());
-        content.set("commands", mapper.valueToTree(apdus.stream().map(i -> HexUtils.bin2hex(i)).collect(Collectors.toList())));
+        content.set("commands", mapper.valueToTree(apdus.stream().map(HexUtils::bin2hex).collect(Collectors.toList())));
         actions.add(action);
 
         return r.toString();

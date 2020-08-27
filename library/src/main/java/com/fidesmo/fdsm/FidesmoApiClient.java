@@ -138,8 +138,7 @@ public class FidesmoApiClient {
             post.setEntity(new ByteArrayEntity(mapper.writeValueAsBytes(request)));
             req = post;
         } else {
-            HttpGet get = new HttpGet(uri);
-            req = get;
+            req = new HttpGet(uri);
         }
 
         if (apidump != null) {
@@ -170,7 +169,7 @@ public class FidesmoApiClient {
 
     public URI getURI(String template, String... args) {
         try {
-            return new URI(String.format(apiurl + template, args));
+            return new URI(String.format(apiurl + template, (Object[]) args));
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException("Invalid url: " + e.getMessage(), e);
         }

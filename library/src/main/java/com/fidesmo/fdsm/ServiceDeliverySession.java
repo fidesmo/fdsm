@@ -21,6 +21,8 @@
  */
 package com.fidesmo.fdsm;
 
+import apdu4j.BIBO;
+import apdu4j.BIBOException;
 import apdu4j.HexUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,7 +41,6 @@ import javax.security.auth.callback.Callback;
 import javax.security.auth.callback.TextInputCallback;
 import javax.security.auth.callback.TextOutputCallback;
 import javax.security.auth.callback.UnsupportedCallbackException;
-import javax.smartcardio.CardException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -63,6 +64,7 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
     private final static long SESSION_TIMEOUT_MINUTES = 15;
     private long sessionTimeout;
     private final FidesmoApiClient client;
+    private final BIBO bibo;
     private final FidesmoCard card;
     private final FormHandler formHandler;
     private final String appId;
@@ -74,8 +76,9 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
     private final CountDownLatch latch = new CountDownLatch(1);
     final ArrayList<Runnable> cleanups = new ArrayList<>();
 
-    private ServiceDeliverySession(FidesmoCard card, FidesmoApiClient client, String appId, String serviceId, FormHandler formHandler) {
+    private ServiceDeliverySession(BIBO bibo, FidesmoCard card, FidesmoApiClient client, String appId, String serviceId, FormHandler formHandler) {
         this.card = card;
+        this.bibo = bibo;
         this.client = client;
         this.formHandler = formHandler;
         this.appId = appId;
@@ -87,12 +90,11 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
         sessionTimeout = minutes * 60 * 1000;
     }
 
-    public static ServiceDeliverySession getInstance(FidesmoCard card, FidesmoApiClient client, String appId, String serviceId, FormHandler formHandler) {
-        return new ServiceDeliverySession(card, client, appId, serviceId, formHandler);
+    public static ServiceDeliverySession getInstance(BIBO bibo, FidesmoCard card, FidesmoApiClient client, String appId, String serviceId, FormHandler formHandler) {
+        return new ServiceDeliverySession(bibo, card, client, appId, serviceId, formHandler);
     }
 
     @Override
-    @SuppressWarnings("deprecation")
     public DeliveryResult get() throws FDSMException {
         if (runner != null)
             throw new IllegalStateException("ServiceDeliverySession is single-use!");
@@ -100,10 +102,10 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
         runner = Thread.currentThread();
         try {
             return deliver(appId, serviceId);
-        } catch (IOException | CardException | UnsupportedCallbackException e) {
+        } catch (IOException | BIBOException | UnsupportedCallbackException e) {
             throw new FDSMException(e.getMessage());
         } finally {
-            // Do any cleanups. We run themere here
+            // Do any cleanups. We run them here
             for (Runnable r : cleanups)
                 r.run();
             // Delivery done
@@ -112,7 +114,7 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
     }
 
     @Deprecated
-    public DeliveryResult deliver(String appId, String serviceId) throws CardException, IOException, UnsupportedCallbackException {
+    public DeliveryResult deliver(String appId, String serviceId) throws IOException, UnsupportedCallbackException {
         // Address #4
         JsonNode deviceInfo = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(card.getCIN()), new BigInteger(1, card.getBatchId()).toString()));
         byte[] iin = HexUtils.decodeHexString_imp(deviceInfo.get("iin").asText());
@@ -130,19 +132,19 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
         JsonNode description = service.get("description");
 
         // Extract SP public key
-        final Optional<PublicKey> spKey;
+        final PublicKey spKey;
         if (description.has("certificate")) {
             try {
                 CertificateFactory cf = CertificateFactory.getInstance("X509");
                 X509Certificate cert = (X509Certificate) cf.generateCertificate(
                         new ByteArrayInputStream(HexUtils.hex2bin(description.get("certificate").asText()))
                 );
-                spKey = Optional.of(cert.getPublicKey());
+                spKey = cert.getPublicKey();
             } catch (GeneralSecurityException e) {
                 throw new IOException("Could not extract public key of service provider", e);
             }
         } else {
-            spKey = Optional.empty();
+            spKey = null;
         }
 
         // Construct Delivery Request
@@ -200,7 +202,7 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
         runner.interrupt();
     }
 
-    protected DeliveryResult deliveryLoop(String sessionId, Optional<PublicKey> spKey) throws IOException, CardException, UnsupportedCallbackException {
+    protected DeliveryResult deliveryLoop(String sessionId, PublicKey spKey) throws IOException, UnsupportedCallbackException {
         ObjectNode fetchrequest = emptyFetchRequest(sessionId);
         long lastActivity = System.currentTimeMillis();
 
@@ -221,7 +223,7 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
                             sessionId,
                             statusNode.get("success").asBoolean(),
                             FidesmoApiClient.lamei18n(statusNode.get("message")),
-                            Optional.ofNullable(FidesmoApiClient.lamei18n(statusNode.get("scriptStatus"))).filter(String::isEmpty)
+                            statusNode.has("scriptStatus") ? FidesmoApiClient.lamei18n(statusNode.get("scriptStatus")) : null
                     );
 
                     if (result.isSuccess()) {
@@ -261,7 +263,7 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
         }
     }
 
-    protected ObjectNode processTransmitOperation(JsonNode operationId, String sessionId) throws CardException, IOException {
+    protected ObjectNode processTransmitOperation(JsonNode operationId, String sessionId) throws IOException {
         ObjectNode transmitrequest = JsonNodeFactory.instance.objectNode();
         transmitrequest.set("uuid", operationId);
         transmitrequest.put("open", true);
@@ -276,7 +278,7 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
 
                 for (JsonNode cmd : commands) {
                     deliveryInterruptionPoint();
-                    responses.add(HexUtils.bin2hex(card.transmit(HexUtils.hex2bin(cmd.asText()))));
+                    responses.add(HexUtils.bin2hex(bibo.transceive(HexUtils.hex2bin(cmd.asText()))));
                 }
 
                 transmitrequest.set("responses", mapper.valueToTree(responses));
@@ -311,10 +313,10 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
         }
     }
 
-    protected ObjectNode processUIOperation(JsonNode operation, String sessionId, final Optional<PublicKey> spKey) throws IOException {
+    protected ObjectNode processUIOperation(JsonNode operation, String sessionId, final PublicKey spKey) throws IOException {
         // Check for encryption
         boolean encrypted = operation.has("encrypted") && operation.get("encrypted").asBoolean();
-        if (encrypted && !spKey.isPresent()) {
+        if (encrypted && spKey == null) {
             throw new IOException("Invalid request: encryption required but no public key available!");
         }
 
@@ -382,7 +384,7 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
             operationResult.put("statusCode", 200);
 
             if (encrypted) {
-                operationResult.put("ephemeralKey", HexUtils.bin2hex(encryptSessionKey(spKey.get(), sessionKey)));
+                operationResult.put("ephemeralKey", HexUtils.bin2hex(encryptSessionKey(spKey, sessionKey)));
             }
         } catch (GeneralSecurityException e) {
             throw new IOException("Could not handle response encryption", e);
@@ -474,9 +476,7 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
 
         List<Field> fields = new ArrayList<>(fieldsNode.size());
 
-        for (Iterator<JsonNode> it = fieldsNode.iterator(); it.hasNext(); ) {
-            JsonNode fieldNode = it.next();
-
+        for (JsonNode fieldNode : fieldsNode) {
             String label = FidesmoApiClient.lamei18n(fieldNode.get("label"));
             fields.add(new Field(
                     fieldNode.get("id").asText(),
@@ -513,9 +513,9 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
         private final String sessionId;
         private final boolean success;
         private final String message;
-        private final Optional<String> scriptStatus;
+        private final String scriptStatus;
 
-        public DeliveryResult(String sessionId, boolean success, String message, Optional<String> scriptStatus) {
+        public DeliveryResult(String sessionId, boolean success, String message, String scriptStatus) {
             this.sessionId = sessionId;
             this.success = success;
             this.message = message;
@@ -535,7 +535,7 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
         }
 
         public Optional<String> getScriptStatus() {
-            return scriptStatus;
+            return Optional.ofNullable(scriptStatus);
         }
 
         @Override

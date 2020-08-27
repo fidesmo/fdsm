@@ -99,7 +99,7 @@ public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
 
     private static boolean isJCOPX(CAPFile cap, String version) {
         AID jcop = new AID(HexUtils.hex2bin("D276000085494A434F5058"));
-        return cap.getImports().stream().filter(p -> p.getAid().equals(jcop) && p.getVersionString().equals(version)).findFirst().isPresent();
+        return cap.getImports().stream().anyMatch(p -> p.getAid().equals(jcop) && p.getVersionString().equals(version));
     }
 
     public static boolean isJCOP242R2(CAPFile cap) {
