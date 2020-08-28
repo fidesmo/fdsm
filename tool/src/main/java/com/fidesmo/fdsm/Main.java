@@ -41,7 +41,6 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.math.BigInteger;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -435,6 +434,7 @@ public class Main extends CommandLineInterface {
             String s = TerminalManager.getExceptionMessage(e);
             fail("No smart card readers: " + (s == null ? e.getMessage() : s));
         } catch (IllegalArgumentException e) {
+            e.printStackTrace();
             fail("Illegal argument: " + e.getMessage());
         } catch (IllegalStateException e) {
             fail("Illegal state: " + e.getMessage());
@@ -526,12 +526,14 @@ public class Main extends CommandLineInterface {
         try {
             JsonNode v = client.rpc(new URI("https://api.fidesmo.com/fdsm-version"));
             // Convert both to numbers
-            int latest = Integer.parseInt(v.get("tag_name").asText("00.00.00").substring(0, 8).replace(".", ""));
-            int current = Integer.parseInt(FidesmoApiClient.getVersion().substring(0, 8).replace(".", ""));
+            String latestTag = v.get("tag_name").asText("v00.00.00");
+            int latest = Integer.parseInt((latestTag.startsWith("v") ? latestTag.substring(1, 9) : latestTag.substring(0, 8)).replace(".", ""));
+            String currentTag = FidesmoApiClient.getVersion();
+            int current = Integer.parseInt((currentTag.startsWith("v") ? currentTag.substring(1, 9) : currentTag.substring(0, 8)).replace(".", ""));
             if (current < latest) {
                 System.out.println("Please download updated version from\n\n" + v.get("html_url").asText());
             }
-        } catch (URISyntaxException | IOException e) {
+        } catch (Exception e) {
             // Do nothing.
             if (verbose)
                 System.err.println("Warning: could not check for updates: " + e.getMessage());
