@@ -72,7 +72,7 @@ public class Main extends CommandLineInterface {
             // Check for version
             if (args.has(OPT_VERSION)) {
                 System.out.println("# fdsm v" + FidesmoApiClient.getVersion());
-                checkVersions(getClient());
+                checkVersions();
             }
 
             // Check if using payment card encryption would fail (Java 1.8 < u151)
@@ -207,10 +207,11 @@ public class Main extends CommandLineInterface {
                 }
             }
 
+            if (requiresCard() || requiresAuthentication())
+                checkVersions();
             // Following requires card access
             if (requiresCard()) {
                 FidesmoApiClient client = getClient();
-                checkVersions(client);
                 // Locate a Fidesmo card, unless asked for a specific terminal
                 CardTerminal terminal = null;
                 if (args.has(OPT_READER)) {
@@ -338,13 +339,12 @@ public class Main extends CommandLineInterface {
                         }
                     }
                 } else if (requiresAuthentication()) { // XXX
-                    AuthenticatedFidesmoApiClient authenticatedClient = getAuthenticatedClient();
-                    checkVersions(authenticatedClient); // Always check versions
-                    FormHandler formHandler = getCommandLineFormHandler();
-
                     if (!auth.getUsername().isPresent()) {
                         throw new IllegalArgumentException("Application ID is required. Use --auth or FIDESMO_AUTH with appId:appKey format");
                     }
+
+                    AuthenticatedFidesmoApiClient authenticatedClient = getAuthenticatedClient();
+                    FormHandler formHandler = getCommandLineFormHandler();
 
                     if (args.has(OPT_INSTALL)) {
                         CAPFile cap = CAPFile.fromStream(new FileInputStream(args.valueOf(OPT_INSTALL)));
@@ -522,7 +522,8 @@ public class Main extends CommandLineInterface {
         return new FidesmoApiClient(apiurl, auth, apiTrace ? System.out : null);
     }
 
-    static void checkVersions(FidesmoApiClient client) {
+    static void checkVersions() {
+        FidesmoApiClient client = new FidesmoApiClient(apiurl, null, apiTrace ? System.out : null);
         try {
             JsonNode v = client.rpc(new URI("https://api.fidesmo.com/fdsm-version"));
             // Convert both to numbers
