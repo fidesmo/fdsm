@@ -6,7 +6,7 @@
 
     <groupId>com.fidesmo</groupId>
     <artifactId>fdsm-toolbox</artifactId>
-    <version>20.08.28-SNAPSHOT</version>
+    <version>20.08.28</version>
     <packaging>pom</packaging>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
