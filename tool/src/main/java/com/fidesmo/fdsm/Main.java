@@ -71,7 +71,7 @@ public class Main extends CommandLineInterface {
 
             // Check for version
             if (args.has(OPT_VERSION)) {
-                System.out.println("# fdsm v" + FidesmoApiClient.getVersion());
+                System.out.println("# fdsm " + FidesmoApiClient.getVersion());
                 checkVersions();
             }
 
