@@ -288,29 +288,21 @@ public class Main extends CommandLineInterface {
                         System.out.println("Not a Fidesmo device");
                     }
                 }
-                FidesmoCard fidesmoCard = fidesmoMetadata.orElseThrow(() -> new IllegalStateException("Need a Fidesmo device to continue!"));
 
-                if (args.has(OPT_CARD_APPS)) {
-                    List<byte[]> apps = FidesmoCard.listApps(bibo);
-                    if (apps.size() > 0) {
-                        printApps(queryApps(client, apps, verbose), System.out, verbose);
-                    } else {
-                        success("No applications");
-                    }
-                } else if (args.has(OPT_RUN)) {
+                if (args.has(OPT_RUN)) {
                     String service = args.valueOf(OPT_RUN);
 
                     if (service.startsWith("ws://") || service.startsWith("wss://")) {
                         boolean success = WsClient.execute(new URI(service), bibo, auth).join().isSuccess();
-
                         if (!success) {
                             fail("Fail to run a script");
                         } else {
                             success();
                         }
-
                     } else {
                         FormHandler formHandler = getCommandLineFormHandler();
+                        FidesmoCard fidesmoCard = fidesmoMetadata.orElseThrow(() -> new IllegalStateException("Need a Fidesmo device to continue!"));
+
                         String appId = null;
                         if (service.contains("/")) {
                             String[] bits = service.split("/");
@@ -337,6 +329,19 @@ public class Main extends CommandLineInterface {
                         } else {
                             success(); // Explicitly quit to signal successful service. Which implies only one service per invocation
                         }
+                    }
+                    // --run always exists
+                }
+
+                // All operations require Fidesmo device
+                FidesmoCard fidesmoCard = fidesmoMetadata.orElseThrow(() -> new IllegalStateException("Need a Fidesmo device to continue!"));
+
+                if (args.has(OPT_CARD_APPS)) {
+                    List<byte[]> apps = FidesmoCard.listApps(bibo);
+                    if (apps.size() > 0) {
+                        printApps(queryApps(client, apps, verbose), System.out, verbose);
+                    } else {
+                        success("No applications");
                     }
                 } else if (requiresAuthentication()) { // XXX
                     if (!auth.getUsername().isPresent()) {
