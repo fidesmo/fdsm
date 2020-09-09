@@ -22,6 +22,7 @@
 package com.fidesmo.fdsm;
 
 import apdu4j.*;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.payneteasy.tlv.BerTag;
 import com.payneteasy.tlv.BerTlv;
 import com.payneteasy.tlv.BerTlvParser;
@@ -144,13 +145,13 @@ public class FidesmoCard {
         return Optional.empty();
     }
 
-    public static boolean deliverRecipe(BIBO bibo, FidesmoCard card, AuthenticatedFidesmoApiClient client, FormHandler formHandler, String appId, String recipe) throws IOException {
+    public static boolean deliverRecipe(BIBO bibo, FidesmoCard card, AuthenticatedFidesmoApiClient client, FormHandler formHandler, String appId, ObjectNode recipe) throws IOException {
         return deliverRecipes(bibo, card, client, formHandler, appId, Collections.singletonList(recipe));
     }
 
-    public static boolean deliverRecipes(BIBO bibo, FidesmoCard card, AuthenticatedFidesmoApiClient client, FormHandler formHandler, String appId, List<String> recipes) throws IOException {
+    public static boolean deliverRecipes(BIBO bibo, FidesmoCard card, AuthenticatedFidesmoApiClient client, FormHandler formHandler, String appId, List<ObjectNode> recipes) throws IOException {
 
-        for (String recipe : recipes) {
+        for (ObjectNode recipe : recipes) {
             final String uuid = UUID.randomUUID().toString();
 
             URI uri = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, appId, uuid);

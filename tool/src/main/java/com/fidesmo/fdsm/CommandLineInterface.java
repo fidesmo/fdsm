@@ -52,7 +52,7 @@ abstract class CommandLineInterface {
     final static protected OptionSpec<String> OPT_RUN = parser.accepts("run", "Run service").withRequiredArg().describedAs("appId/serviceId or URL");
     final static protected OptionSpec<String> OPT_FIELDS = parser.accepts("fields", "Service parameters").withRequiredArg().describedAs("field=value,...");
 
-    final static protected OptionSpec<File> OPT_UPLOAD = parser.accepts("upload", "Upload CAP to Fidesmo").withRequiredArg().ofType(File.class).describedAs("CAP file");
+    final static protected OptionSpec<File> OPT_UPLOAD = parser.accepts("upload", "Upload CAP or recipe to Fidesmo").withRequiredArg().ofType(File.class).describedAs(".cap/.json file");
     final static protected OptionSpec<Void> OPT_LIST_APPLETS = parser.accepts("list-applets", "List applets at Fidesmo");
     final static protected OptionSpec<String> OPT_DELETE_APPLET = parser.accepts("delete-applet", "Deletes applet from Fidesmo").withRequiredArg().describedAs("ID");
     final static protected OptionSpec<Void> OPT_CARD_APPS = parser.accepts("card-apps", "List apps on the card");

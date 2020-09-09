@@ -27,15 +27,18 @@ import apdu4j.HexUtils;
 import apdu4j.TerminalManager;
 import apdu4j.terminals.LoggingCardTerminal;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fidesmo.fdsm.FidesmoCard.ChipPlatform;
 import jnasmartcardio.Smartcardio;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.http.client.HttpResponseException;
 import pro.javacard.AID;
 import pro.javacard.CAPFile;
 
 import javax.crypto.Cipher;
 import javax.smartcardio.*;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -197,8 +200,16 @@ public class Main extends CommandLineInterface {
                 }
 
                 if (args.has(OPT_UPLOAD)) {
-                    CAPFile cap = CAPFile.fromStream(new FileInputStream(args.valueOf(OPT_UPLOAD)));
-                    client.upload(cap);
+                    File f = args.valueOf(OPT_UPLOAD);
+                    if (FilenameUtils.getExtension(f.getName()).equalsIgnoreCase("json")) {
+                        String name = FilenameUtils.getBaseName(f.getName());
+                        ObjectNode recipe = RecipeGenerator.mapper.readTree(Files.readAllBytes(f.toPath())).deepCopy();
+                        URI uri = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, getAppId(), name);
+                        client.put(uri, recipe);
+                    } else {
+                        CAPFile cap = CAPFile.fromStream(new FileInputStream(args.valueOf(OPT_UPLOAD)));
+                        client.upload(cap);
+                    }
                 } else if (args.has(OPT_FLUSH_APPLETS)) {
                     JsonNode applets = client.rpc(client.getURI(FidesmoApiClient.ELF_URL));
                     for (JsonNode e : applets) {
@@ -375,11 +386,11 @@ public class Main extends CommandLineInterface {
                                 throw new IllegalArgumentException("Installation parameters must be without C9 tag");
                             }
                         }
-                        String recipe = RecipeGenerator.makeInstallRecipe(cap.getLoadFileDataHash("SHA-256"), applet, instance, params);
+                        byte[] lfdbh = cap.getLoadFileDataHash("SHA-256");
                         JsonNode applets = client.rpc(client.getURI(FidesmoApiClient.ELF_URL));
                         boolean present = false;
                         for (JsonNode e : applets) {
-                            if (Arrays.equals(Hex.decodeHex(e.get("id").asText()), cap.getLoadFileDataHash("SHA-256"))) {
+                            if (Arrays.equals(Hex.decodeHex(e.get("id").asText()), lfdbh)) {
                                 present = true;
                             }
                         }
@@ -387,6 +398,7 @@ public class Main extends CommandLineInterface {
                         if (!present) {
                             authenticatedClient.upload(cap);
                         }
+                        ObjectNode recipe = RecipeGenerator.makeInstallRecipe(lfdbh, applet, instance, params);
                         FidesmoCard.deliverRecipe(bibo, fidesmoCard, authenticatedClient, formHandler, getAppId(), recipe);
                     } else if (args.has(OPT_UNINSTALL)) {
                         String s = args.valueOf(OPT_UNINSTALL);
@@ -402,7 +414,7 @@ public class Main extends CommandLineInterface {
                         } else {
                             aid = CAPFile.fromBytes(Files.readAllBytes(p)).getPackageAID();
                         }
-                        String recipe = RecipeGenerator.makeDeleteRecipe(aid);
+                        ObjectNode recipe = RecipeGenerator.makeDeleteRecipe(aid);
                         FidesmoCard.deliverRecipe(bibo, fidesmoCard, authenticatedClient, formHandler, getAppId(), recipe);
                     }
 
@@ -410,7 +422,7 @@ public class Main extends CommandLineInterface {
                     if (args.has(OPT_STORE_DATA)) {
                         List<byte[]> blobs = args.valuesOf(OPT_STORE_DATA).stream().map(HexUtils::stringToBin).collect(Collectors.toList());
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET));
-                        String recipe = RecipeGenerator.makeStoreDataRecipe(applet, blobs);
+                        ObjectNode recipe = RecipeGenerator.makeStoreDataRecipe(applet, blobs);
                         FidesmoCard.deliverRecipe(bibo, fidesmoCard, authenticatedClient, formHandler, getAppId(), recipe);
                     }
 
@@ -418,7 +430,7 @@ public class Main extends CommandLineInterface {
                     if (args.has(OPT_SECURE_APDU)) {
                         List<byte[]> apdus = args.valuesOf(OPT_SECURE_APDU).stream().map(HexUtils::stringToBin).collect(Collectors.toList());
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET));
-                        String recipe = RecipeGenerator.makeSecureTransceiveRecipe(applet, apdus);
+                        ObjectNode recipe = RecipeGenerator.makeSecureTransceiveRecipe(applet, apdus);
                         FidesmoCard.deliverRecipe(bibo, fidesmoCard, authenticatedClient, formHandler, getAppId(), recipe);
                     }
                 }

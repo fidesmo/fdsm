@@ -32,8 +32,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class RecipeGenerator {
+    static ObjectMapper mapper = new ObjectMapper();
+
     // uses LFDBH
-    public static String makeInstallRecipe(byte[] pkg, AID app, AID instance, byte[] params) {
+    public static ObjectNode makeInstallRecipe(byte[] pkg, AID app, AID instance, byte[] params) {
         if (instance == null)
             instance = app;
         ObjectNode r = JsonNodeFactory.instance.objectNode();
@@ -52,10 +54,10 @@ public class RecipeGenerator {
             content.put("parameters", HexUtils.bin2hex(params));
         r.putArray("actions").add(action);
 
-        return r.toString();
+        return r;
     }
 
-    public static String makeDeleteRecipe(AID pkg) {
+    public static ObjectNode makeDeleteRecipe(AID pkg) {
         ObjectNode r = JsonNodeFactory.instance.objectNode();
         r.putObject("failureMessage").put("en", "Could not uninstall " + pkg);
         r.putObject("successMessage").put("en", "Successfully uninstalled " + pkg);
@@ -68,10 +70,10 @@ public class RecipeGenerator {
         content.put("withRelated", true);
         r.putArray("actions").add(action);
 
-        return r.toString();
+        return r;
     }
 
-    public static String makeStoreDataRecipe(AID app, List<byte[]> payloads) {
+    public static ObjectNode makeStoreDataRecipe(AID app, List<byte[]> payloads) {
         ObjectNode r = JsonNodeFactory.instance.objectNode();
         r.putObject("failureMessage").put("en", "Could not store data to " + app);
         r.putObject("successMessage").put("en", "Successfully stored data to " + app);
@@ -87,12 +89,10 @@ public class RecipeGenerator {
             content.put("data", HexUtils.bin2hex(payload));
             actions.add(action);
         }
-        return r.toString();
+        return r;
     }
 
-    public static String makeSecureTransceiveRecipe(AID app, List<byte[]> apdus) {
-        ObjectMapper mapper = new ObjectMapper();
-
+    public static ObjectNode makeSecureTransceiveRecipe(AID app, List<byte[]> apdus) {
         ObjectNode r = JsonNodeFactory.instance.objectNode();
         r.putObject("failureMessage").put("en", "Could not send apdus to " + app);
         r.putObject("successMessage").put("en", "Successfully sent apdus to " + app);
@@ -106,7 +106,6 @@ public class RecipeGenerator {
         content.put("application", app.toString());
         content.set("commands", mapper.valueToTree(apdus.stream().map(HexUtils::bin2hex).collect(Collectors.toList())));
         actions.add(action);
-
-        return r.toString();
+        return r;
     }
 }
