@@ -22,6 +22,7 @@
 package com.fidesmo.fdsm;
 
 import apdu4j.HexUtils;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
@@ -49,20 +50,15 @@ public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
         return new AuthenticatedFidesmoApiClient(auth, apidump);
     }
 
-    public void put(URI uri, String json) throws IOException {
+    public void put(URI uri, ObjectNode json) throws IOException {
         HttpPut put = new HttpPut(uri);
-        put.setEntity(new StringEntity(json, ContentType.APPLICATION_JSON));
+        put.setEntity(new StringEntity(RecipeGenerator.mapper.writeValueAsString(json), ContentType.APPLICATION_JSON));
         transmit(put).close();
     }
 
     public void delete(URI uri) throws IOException {
         HttpDelete delete = new HttpDelete(uri);
         transmit(delete).close();
-    }
-
-    @Deprecated
-    public String getAppId() {
-        return authentication.getUsername().orElseThrow(() -> new IllegalArgumentException("Application ID not present!"));
     }
 
     // Upload a CAP file
