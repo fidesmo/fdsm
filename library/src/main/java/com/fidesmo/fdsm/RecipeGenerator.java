@@ -21,7 +21,7 @@
  */
 package com.fidesmo.fdsm;
 
-import apdu4j.HexUtils;
+import apdu4j.core.HexUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;

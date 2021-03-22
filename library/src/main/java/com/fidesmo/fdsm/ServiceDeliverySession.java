@@ -21,9 +21,9 @@
  */
 package com.fidesmo.fdsm;
 
-import apdu4j.BIBO;
-import apdu4j.BIBOException;
-import apdu4j.HexUtils;
+import apdu4j.core.HexUtils;
+import apdu4j.core.BIBO;
+import apdu4j.core.BIBOException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -448,7 +448,7 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
 
     private byte[] encryptSessionKey(PublicKey publicKey, Key key) throws GeneralSecurityException {
         Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-512AndMGF1Padding");
-        // NOTE: SunJCE default parameters do not match the string above, so must give them as parameters
+        // NOTE: SunJCE default parameters do not match the string above, so must give them as explicit parameters
         cipher.init(Cipher.ENCRYPT_MODE, publicKey, new OAEPParameterSpec("SHA-512", "MGF1", MGF1ParameterSpec.SHA512, PSource.PSpecified.DEFAULT));
         return cipher.doFinal(key.getEncoded());
     }

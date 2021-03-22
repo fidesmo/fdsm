@@ -1,6 +1,6 @@
 package com.fidesmo.fdsm;
 
-import apdu4j.BIBO;
+import apdu4j.core.BIBO;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 

@@ -21,11 +21,13 @@
  */
 package com.fidesmo.fdsm;
 
-import apdu4j.APDUBIBO;
-import apdu4j.CardBIBO;
-import apdu4j.HexUtils;
-import apdu4j.TerminalManager;
-import apdu4j.terminals.LoggingCardTerminal;
+import apdu4j.core.APDUBIBO;
+import apdu4j.pcsc.CardBIBO;
+
+import apdu4j.pcsc.SCard;
+import apdu4j.pcsc.TerminalManager;
+import apdu4j.core.HexUtils;
+import apdu4j.pcsc.terminals.LoggingCardTerminal;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fidesmo.fdsm.FidesmoCard.ChipPlatform;
@@ -60,7 +62,7 @@ public class Main extends CommandLineInterface {
         System.setProperty("org.slf4j.simpleLogger.showThreadName", "false");
         System.setProperty("org.slf4j.simpleLogger.levelInBrackets", "true");
         System.setProperty("org.slf4j.simpleLogger.showShortLogName", "true");
-        System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "error");
+        System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", System.getenv().getOrDefault(ENV_FIDESMO_DEBUG, "error"));
 
         try {
             // Inspect arguments
@@ -69,7 +71,7 @@ public class Main extends CommandLineInterface {
             inspectEnvironment(args);
 
             // Show useful stuff
-            if (verbose)
+            if (verbose && System.getenv(ENV_FIDESMO_DEBUG) == null)
                 System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "info");
 
             // Check for version
@@ -448,7 +450,7 @@ public class Main extends CommandLineInterface {
         } catch (CardException e) {
             fail("Card communication error: " + e.getMessage());
         } catch (GeneralSecurityException | Smartcardio.EstablishContextException e) {
-            String s = TerminalManager.getExceptionMessage(e);
+            String s = SCard.getExceptionMessage(e);
             fail("No smart card readers: " + (s == null ? e.getMessage() : s));
         } catch (IllegalArgumentException e) {
             e.printStackTrace();
@@ -540,6 +542,11 @@ public class Main extends CommandLineInterface {
     }
 
     static void checkVersions() {
+        if (offline) {
+            if (verbose)
+                System.out.println("# Omitting online version check");
+            return;
+        }
         FidesmoApiClient client = new FidesmoApiClient(apiurl, null, apiTrace ? System.out : null);
         try {
             JsonNode v = client.rpc(new URI("https://api.fidesmo.com/fdsm-version"));

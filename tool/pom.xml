@@ -32,13 +32,13 @@
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
             <artifactId>capfile</artifactId>
-            <version>20.01.30</version>
+            <version>21.03.07</version>
         </dependency>
         <!-- Card reader access -->
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
             <artifactId>apdu4j-pcsc</artifactId>
-            <version>20.01.01</version>
+            <version>20.08.14-SNAPSHOT</version>
         </dependency>
         <!-- Simple logging for the CLI -->
         <dependency>
@@ -95,7 +95,7 @@
                                         <mainClass>com.fidesmo.fdsm.Main</mainClass>
                                     </classPath>
                                     <jre>
-                                        <minVersion>1.8.0</minVersion>
+                                        <minVersion>11.0</minVersion>
                                     </jre>
                                     <versionInfo>
                                         <fileVersion>${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}.${parsedVersion.buildNumber}</fileVersion>

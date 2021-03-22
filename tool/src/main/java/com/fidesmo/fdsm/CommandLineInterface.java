@@ -21,7 +21,6 @@
  */
 package com.fidesmo.fdsm;
 
-import apdu4j.HexUtils;
 import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -54,7 +53,7 @@ abstract class CommandLineInterface {
 
     final static protected OptionSpec<File> OPT_UPLOAD = parser.accepts("upload", "Upload CAP or recipe to Fidesmo").withRequiredArg().ofType(File.class).describedAs(".cap/.json file");
     final static protected OptionSpec<Void> OPT_LIST_APPLETS = parser.accepts("list-applets", "List applets at Fidesmo");
-    final static protected OptionSpec<String> OPT_DELETE_APPLET = parser.accepts("delete-applet", "Deletes applet from Fidesmo").withRequiredArg().describedAs("ID");
+    final static protected OptionSpec<String> OPT_DELETE_APPLET = parser.accepts("delete-applet", "Deletes applet at Fidesmo").withRequiredArg().describedAs("ID");
     final static protected OptionSpec<Void> OPT_CARD_APPS = parser.accepts("card-apps", "List apps on the card");
     final static protected OptionSpec<Void> OPT_CARD_INFO = parser.accepts("card-info", "Show info about the card");
     final static protected OptionSpec<Void> OPT_OFFLINE = parser.accepts("offline", "Do not connect to Fidesmo server for retrieving further device info");
@@ -63,7 +62,7 @@ abstract class CommandLineInterface {
     final static protected OptionSpec<String> OPT_STORE_APPS = parser.accepts("store-apps", "List apps in the store").withOptionalArg().describedAs("status");
     final static protected OptionSpec<Void> OPT_FLUSH_APPLETS = parser.accepts("flush-applets", "Flush all applets from Fidesmo");
     final static protected OptionSpec<Void> OPT_LIST_RECIPES = parser.accepts("list-recipes", "List recipes at Fidesmo");
-    final static protected OptionSpec<Void> OPT_CLEANUP = parser.accepts("cleanup", "Clean up stale recipes");
+    final static protected OptionSpec<Void> OPT_CLEANUP = parser.accepts("cleanup", "Clean up stale FDSM recipes");
     final static protected OptionSpec<File> OPT_INSTALL = parser.accepts("install", "Install CAP to card").withRequiredArg().ofType(File.class).describedAs("CAP file");
 
     final static protected OptionSpec<String> OPT_PARAMS = parser.accepts("params", "Installation parameters").withRequiredArg().describedAs("HEX");
@@ -73,6 +72,11 @@ abstract class CommandLineInterface {
     final static protected OptionSpec<Integer> OPT_QA = parser.accepts("qa", "Run a QA support session").withOptionalArg().ofType(Integer.class).describedAs("QA number");
 
     final static protected OptionSpec<Integer> OPT_TIMEOUT = parser.accepts("timeout", "Timeout for services").withRequiredArg().ofType(Integer.class).describedAs("minutes");
+
+    final static String ENV_FIDESMO_API_URL = "FIDESMO_API_URL";
+    final static String ENV_FIDESMO_AUTH = "FIDESMO_AUTH";
+    final static String ENV_FIDESMO_DEBUG = "FIDESMO_DEBUG";
+
 
     protected static ClientAuthentication auth;
     protected static String apiurl;
@@ -86,25 +90,23 @@ abstract class CommandLineInterface {
 
     protected static void inspectEnvironment(OptionSet args) {
         // Authentication
-        if (!args.has(OPT_AUTH) && System.getenv().containsKey("FIDESMO_AUTH")) {
-            System.out.println("Using $FIDESMO_AUTH for authentication");
-            auth = ClientAuthentication.forUserPasswordOrToken(System.getenv("FIDESMO_AUTH"));
+        if (!args.has(OPT_AUTH) && System.getenv().containsKey(ENV_FIDESMO_AUTH)) {
+            System.out.printf("Using $%s for authentication", ENV_FIDESMO_AUTH);
+            auth = ClientAuthentication.forUserPasswordOrToken(System.getenv(ENV_FIDESMO_AUTH));
         }
         if (args.has(OPT_AUTH)) {
             auth = ClientAuthentication.forUserPasswordOrToken(args.valueOf(OPT_AUTH));
         }
 
         // API URL
-        final String FIDESMO_API_URL = "FIDESMO_API_URL";
         try {
-            apiurl = new URL(System.getenv().getOrDefault(FIDESMO_API_URL, FidesmoApiClient.APIv2)).toString();
+            apiurl = new URL(System.getenv().getOrDefault(ENV_FIDESMO_API_URL, FidesmoApiClient.APIv2)).toString();
         } catch (MalformedURLException e) {
-            System.err.println("Invalid $FIDESMO_API_URL: " + System.getenv(FIDESMO_API_URL));
+            System.err.printf("Invalid $%s: %s%n", ENV_FIDESMO_API_URL, System.getenv(ENV_FIDESMO_API_URL));
         }
     }
 
     protected static OptionSet parseArguments(String[] argv) throws IOException {
-
         // Parse arguments
         try {
             args = parser.parse(argv);
@@ -126,14 +128,10 @@ abstract class CommandLineInterface {
         }
 
         // Set some variables
-        if (args.has(OPT_TRACE_API))
-            apiTrace = true;
-        if (args.has(OPT_TRACE_APDU))
-            apduTrace = true;
-        if (args.has(OPT_VERBOSE))
-            verbose = true;
-        if (args.has(OPT_OFFLINE))
-            offline = true;
+        apiTrace = args.has(OPT_TRACE_API);
+        apduTrace = args.has(OPT_TRACE_APDU);
+        verbose = args.has(OPT_VERBOSE);
+        offline = args.has(OPT_OFFLINE);
         return args;
     }
 
