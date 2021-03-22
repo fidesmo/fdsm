@@ -21,7 +21,7 @@
  */
 package com.fidesmo.fdsm;
 
-import apdu4j.*;
+import apdu4j.core.*;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.payneteasy.tlv.BerTag;
 import com.payneteasy.tlv.BerTlv;
