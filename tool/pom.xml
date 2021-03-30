@@ -47,13 +47,6 @@
             <version>1.7.30</version>
             <optional>true</optional>
         </dependency>
-        <!-- SmartCardApp lazy service file -->
-        <dependency>
-            <groupId>com.google.auto.service</groupId>
-            <artifactId>auto-service</artifactId>
-            <version>1.0-rc7</version>
-            <optional>true</optional>
-        </dependency>
     </dependencies>
     <profiles>
         <profile>
@@ -64,7 +57,7 @@
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>build-helper-maven-plugin</artifactId>
-                        <version>3.0.0</version>
+                        <version>3.2.0</version>
                         <executions>
                             <execution>
                                 <id>windows-file-version</id>
@@ -78,7 +71,7 @@
                     <plugin>
                         <groupId>com.akathist.maven.plugins.launch4j</groupId>
                         <artifactId>launch4j-maven-plugin</artifactId>
-                        <version>1.7.25</version>
+                        <version>2.0.1</version>
                         <executions>
                             <execution>
                                 <id>fdsm-exe</id>
@@ -170,14 +163,6 @@
                                     <mainClass>com.fidesmo.fdsm.Main</mainClass>
                                 </transformer>
                             </transformers>
-                            <artifactSet>
-                                <excludes>
-                                    <exclude>org.bouncycastle:*</exclude>
-                                    <exclude>com.googlecode.json-simple:*</exclude>
-                                    <exclude>junit:junit:*</exclude>
-                                    <exclude>org.hamcrest:hamcrest-core:*</exclude>
-                                </excludes>
-                            </artifactSet>
                             <filters>
                                 <filter>
                                     <artifact>*:*</artifact>
