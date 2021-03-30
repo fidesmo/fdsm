@@ -45,6 +45,7 @@ public class FidesmoCard {
         JCOP3EMV(3),
         JCOP3SECID(4),
         ST31(5),
+        OPTELIO(6),
         JCOP4(7);
 
         private final int v;
@@ -99,6 +100,13 @@ public class FidesmoCard {
         // OperatingSystemReleaseDate=7248 (2017-09-05)
         // OperatingSystemReleaseLevel=5431
         CPLC_PLATFORMS.put(HexBytes.v("475000B8475072485431"), ChipPlatform.ST31);
+
+        // ICFabricator=4090
+        // ICType=1889
+        // OperatingSystemID=1981
+        // OperatingSystemReleaseDate=7322 (2017-11-18)
+        // OperatingSystemReleaseLevel=0100
+        CPLC_PLATFORMS.put(HexBytes.v("40901889198173220100"), ChipPlatform.OPTELIO);
 
         // ICFabricator=4790
         // ICType=D321
@@ -279,6 +287,9 @@ public class FidesmoCard {
         return batchId.clone();
     }
 
+    public byte[] getCPLC() {
+        return cplc.clone();
+    }
 
     private static boolean valid(byte[] v) {
         try {

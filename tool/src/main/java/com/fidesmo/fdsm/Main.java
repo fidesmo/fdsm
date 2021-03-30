@@ -290,7 +290,9 @@ public class Main extends CommandLineInterface {
                                 printableCIN(fidesmoCard.getCIN()),
                                 HexUtils.bin2hex(fidesmoCard.getBatchId()),
                                 uid.map(HexUtils::bin2hex).orElse("N/A"));
-                        if (!args.has(OPT_OFFLINE)) {
+                        if (args.has(OPT_OFFLINE)) {
+                            System.out.format("OS type: %s%n", FidesmoCard.detectPlatform(fidesmoCard.getCPLC()).map(ChipPlatform::toString).orElse("unknown"));
+                        } else {
                             JsonNode device = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(fidesmoCard.getCIN()), new BigInteger(1, fidesmoCard.getBatchId()).toString()));
                             byte[] iin = HexUtils.decodeHexString_imp(device.get("iin").asText());
                             // Read capabilities
