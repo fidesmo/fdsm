@@ -119,7 +119,7 @@ public class FidesmoApiClient {
 
         CloseableHttpResponse response = http.execute(request, context);
         int responsecode = response.getStatusLine().getStatusCode();
-        if (responsecode < 200 || responsecode > 299 && responsecode != 424) {
+        if (responsecode < 200 || responsecode > 299) {
             String message = response.getStatusLine() + "\n" + IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
             response.close();
             throw new HttpResponseException(responsecode, message);
@@ -155,7 +155,7 @@ public class FidesmoApiClient {
             if (apidump != null) {
                 apidump.println("RECV: " + response.getStatusLine().getStatusCode() + " " + response.getStatusLine().getReasonPhrase());
             }
-            if (response.getStatusLine().getStatusCode() == 204 || response.getStatusLine().getStatusCode() == 424) {
+            if (response.getStatusLine().getStatusCode() == 204) {
                 // Empty response
                 return null;
             } else {

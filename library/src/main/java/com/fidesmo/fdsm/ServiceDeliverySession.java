@@ -407,11 +407,15 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
     }
 
     protected void notifyDeliveryFailure(String sessionId, String message) throws IOException {
-        ObjectNode deliveryError = JsonNodeFactory.instance.objectNode();
-        deliveryError.put("sessionId", sessionId);
-        deliveryError.put("message", message);
-        deliveryError.put("fatal", true);
-        client.rpc(client.getURI(FidesmoApiClient.SERVICE_DELIVERY_ERROR_URL), deliveryError);
+        try {
+            ObjectNode deliveryError = JsonNodeFactory.instance.objectNode();
+            deliveryError.put("sessionId", sessionId);
+            deliveryError.put("message", message);
+            deliveryError.put("fatal", true);
+            client.rpc(client.getURI(FidesmoApiClient.SERVICE_DELIVERY_ERROR_URL), deliveryError);
+        } catch (HttpResponseException e) {
+            logger.warn("Delivery error reporting got a {}", e.getStatusCode());
+        }
     }
 
     private byte[] encrypt(String value, Key key) throws GeneralSecurityException {
