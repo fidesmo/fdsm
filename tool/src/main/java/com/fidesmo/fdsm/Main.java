@@ -241,12 +241,17 @@ public class Main extends CommandLineInterface {
                         }
                     }
                     if (terminal == null) {
+                        System.err.println("Available readers:");
+                        terminals.list().forEach(r -> System.err.println("- " + r.getName()));
                         throw new IllegalArgumentException(String.format("Reader \"%s\" not found", reader));
                     }
                 } else {
                     List<CardTerminal> candidates = TerminalManager.byAID(FidesmoCard.FIDESMO_CARD_AIDS);
-                    if (candidates.size() != 1)
-                        throw new CardException("Could not find a single Fidesmo card; must use --reader");
+                    if (candidates.size() != 1) {
+                        System.err.println("Available readers:");
+                        terminals.list().forEach(r -> System.err.println("- " + r.getName()));
+                        throw new CardException("Could not find a single Fidesmo card; must use --reader.");
+                    }
                     terminal = candidates.get(0);
                 }
 
