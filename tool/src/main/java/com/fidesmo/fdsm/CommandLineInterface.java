@@ -21,6 +21,7 @@
  */
 package com.fidesmo.fdsm;
 
+import apdu4j.core.HexBytes;
 import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -28,6 +29,7 @@ import joptsimple.OptionSpec;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Arrays;
@@ -43,9 +45,9 @@ abstract class CommandLineInterface {
     final static protected OptionSpec<Void> OPT_TRACE_APDU = parser.accepts("trace-apdu", "Trace APDU-s");
     final static protected OptionSpec<Void> OPT_VERBOSE = parser.accepts("verbose", "Be verbose");
 
-    final static protected OptionSpec<String> OPT_AUTH = parser.accepts("auth", "Use authentication credentials").withRequiredArg().describedAs("username:password / token");
+    final static protected OptionSpec<String> OPT_AUTH = parser.accepts("auth", "Use authentication credentials").withRequiredArg().describedAs("usr:pwd / token");
 
-    final static protected OptionSpec<String> OPT_STORE_DATA = parser.accepts("store-data", "STORE DATA to applet").withRequiredArg().describedAs("HEX");
+    final static protected OptionSpec<HexBytes> OPT_STORE_DATA = parser.accepts("store-data", "STORE DATA to applet").withRequiredArg().ofType(HexBytes.class);
     final static protected OptionSpec<String> OPT_APPLET = parser.accepts("applet", "Specify applet").requiredIf(OPT_STORE_DATA).withRequiredArg().describedAs("AID");
 
     final static protected OptionSpec<String> OPT_RUN = parser.accepts("run", "Run service").withRequiredArg().describedAs("appId/serviceId or URL");
@@ -56,8 +58,8 @@ abstract class CommandLineInterface {
     final static protected OptionSpec<String> OPT_DELETE_APPLET = parser.accepts("delete-applet", "Deletes applet at Fidesmo").withRequiredArg().describedAs("ID");
     final static protected OptionSpec<Void> OPT_CARD_APPS = parser.accepts("card-apps", "List apps on the card");
     final static protected OptionSpec<Void> OPT_CARD_INFO = parser.accepts("card-info", "Show info about the card");
-    final static protected OptionSpec<Void> OPT_OFFLINE = parser.accepts("offline", "Do not connect to Fidesmo server for retrieving further device info");
-    final static protected OptionSpec<String> OPT_SECURE_APDU = parser.accepts("secure-apdu", "Send APDU via secure channel").withRequiredArg().describedAs("HEX");
+    final static protected OptionSpec<Void> OPT_OFFLINE = parser.accepts("offline", "Do not connect to Fidesmo");
+    final static protected OptionSpec<HexBytes> OPT_SECURE_APDU = parser.accepts("secure-apdu", "Send APDU via secure channel").withRequiredArg().ofType(HexBytes.class);
 
     final static protected OptionSpec<String> OPT_STORE_APPS = parser.accepts("store-apps", "List apps in the store").withOptionalArg().describedAs("status");
     final static protected OptionSpec<Void> OPT_FLUSH_APPLETS = parser.accepts("flush-applets", "Flush all applets from Fidesmo");
@@ -65,7 +67,7 @@ abstract class CommandLineInterface {
     final static protected OptionSpec<Void> OPT_CLEANUP = parser.accepts("cleanup", "Clean up stale FDSM recipes");
     final static protected OptionSpec<File> OPT_INSTALL = parser.accepts("install", "Install CAP to card").withRequiredArg().ofType(File.class).describedAs("CAP file");
 
-    final static protected OptionSpec<String> OPT_PARAMS = parser.accepts("params", "Installation parameters").withRequiredArg().describedAs("HEX");
+    final static protected OptionSpec<HexBytes> OPT_PARAMS = parser.accepts("params", "Installation parameters").withRequiredArg().ofType(HexBytes.class);
     final static protected OptionSpec<String> OPT_CREATE = parser.accepts("create", "Applet instance AID").withRequiredArg().describedAs("AID");
     final static protected OptionSpec<String> OPT_UNINSTALL = parser.accepts("uninstall", "Uninstall CAP from card").withRequiredArg().describedAs("CAP file / AID");
 
@@ -81,8 +83,8 @@ abstract class CommandLineInterface {
     protected static ClientAuthentication auth;
     protected static String apiurl;
 
-    protected static boolean apduTrace = false;
-    protected static boolean apiTrace = false;
+    protected static PrintStream apduTraceStream;
+    protected static PrintStream apiTraceStream;
     protected static boolean verbose = false;
     protected static boolean offline = false;
 
@@ -128,8 +130,8 @@ abstract class CommandLineInterface {
         }
 
         // Set some variables
-        apiTrace = args.has(OPT_TRACE_API);
-        apduTrace = args.has(OPT_TRACE_APDU);
+        apiTraceStream = args.has(OPT_TRACE_API) ? System.out : null;
+        apduTraceStream = args.has(OPT_TRACE_APDU) ? System.out : null;
         verbose = args.has(OPT_VERBOSE);
         offline = args.has(OPT_OFFLINE);
         return args;

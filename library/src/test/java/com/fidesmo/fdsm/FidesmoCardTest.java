@@ -8,11 +8,12 @@ import static org.testng.Assert.assertEquals;
 public class FidesmoCardTest {
 
     @Test
-    public void testOldStorageAppletSupport()  {
+    public void testOldStorageAppletSupport() {
         TestChannel channel = TestChannel.fromStrings(
                 "6F108408A000000151000000A5049F6501FF9000",
                 "9F7F2A47906B644700E4D80300816500485399064800000000000000005758594E4E4E4E4E00000000000000009000",
-                "3D5F8004132EDA9000",
+                "45073D5F8004132EDA9000",
+                "6A82",
                 "42030000C7430602396818B7440203009000"
         );
 
@@ -22,11 +23,12 @@ public class FidesmoCardTest {
     }
 
     @Test
-    public void testCorrectParsingCardInfo()  {
+    public void testCorrectParsingCardInfo() {
         TestChannel channel = TestChannel.fromStrings(
                 "6F108408A000000151000000A5049F6501FF9000",
                 "9F7F2A47906B644700E4D80300816501062899064800000000000000005758594E4E4E4E4E00000000000000009000",
-                "3D5F8004132EDA9000",
+                "45073D5F8004132EDA9000",
+                "6A82",
                 "420300008C4306023967FE8B419000"
         );
 

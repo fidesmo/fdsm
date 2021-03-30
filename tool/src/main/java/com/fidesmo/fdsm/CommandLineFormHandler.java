@@ -24,6 +24,7 @@ package com.fidesmo.fdsm;
 import javax.security.auth.callback.*;
 import java.io.Console;
 import java.util.*;
+import java.util.concurrent.CancellationException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -53,7 +54,7 @@ public class CommandLineFormHandler implements FormHandler {
             if (predefinedFields.containsKey(field.getId())) {
                 field.setValue(predefinedFields.get(field.getId()));
             } else {
-                field.setValue(askForField(field).orElseThrow(() -> new UserCancelledException("User cancelled input")));
+                field.setValue(askForField(field).orElseThrow(() -> new CancellationException("User cancelled input")));
             }
             results.put(field.getId(), field);
         }

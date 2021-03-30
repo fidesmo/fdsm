@@ -108,7 +108,7 @@ public class FidesmoApiClient {
     }
 
     public CloseableHttpResponse transmit(HttpRequestBase request) throws IOException {
-        // XXX: GET/POST get handled in rpc(), this is only for PUT
+        // XXX: GET/POST get handled in rpc(), this is only for PUT and DELETE
         if (apidump != null && !(request.getMethod().equals("GET") || request.getMethod().equals("POST"))) {
             apidump.println(request.getMethod() + ": " + request.getURI());
         }
@@ -119,7 +119,7 @@ public class FidesmoApiClient {
 
         CloseableHttpResponse response = http.execute(request, context);
         int responsecode = response.getStatusLine().getStatusCode();
-        if (responsecode < 200 || responsecode > 299) {
+        if (responsecode < 200 || responsecode > 299 && responsecode != 424) {
             String message = response.getStatusLine() + "\n" + IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
             response.close();
             throw new HttpResponseException(responsecode, message);
@@ -152,16 +152,18 @@ public class FidesmoApiClient {
         req.setHeader(HttpHeaders.CONTENT_TYPE, ContentType.APPLICATION_JSON.toString());
 
         try (CloseableHttpResponse response = transmit(req)) {
-            if (response.getStatusLine().getStatusCode() == 204) {
+            if (apidump != null) {
+                apidump.println("RECV: " + response.getStatusLine().getStatusCode() + " " + response.getStatusLine().getReasonPhrase());
+            }
+            if (response.getStatusLine().getStatusCode() == 204 || response.getStatusLine().getStatusCode() == 424) {
                 // Empty response
                 return null;
             } else {
+                // getContent will throw if bad response
                 JsonNode json = mapper.readTree(response.getEntity().getContent());
                 if (apidump != null) {
-                    apidump.println("RECV:");
                     apidump.println(mapper.writer(printer).writeValueAsString(json));
                 }
-
                 return json;
             }
         }
@@ -201,7 +203,7 @@ public class FidesmoApiClient {
         if (n == null)
             return "";
         if (n.size() > 0) {
-            Map<String, Object> langs = mapper.convertValue(n, new TypeReference<Map<String, Object>>() {
+            Map<String, Object> langs = mapper.convertValue(n, new TypeReference<>() {
             });
             Map.Entry<String, Object> first = langs.entrySet().iterator().next();
             return langs.getOrDefault(Locale.getDefault().getLanguage(), langs.getOrDefault("en", first.getValue())).toString();
@@ -209,5 +211,4 @@ public class FidesmoApiClient {
             return n.asText();
         }
     }
-
 }

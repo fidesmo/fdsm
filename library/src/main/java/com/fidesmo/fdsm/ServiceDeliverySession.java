@@ -21,9 +21,9 @@
  */
 package com.fidesmo.fdsm;
 
-import apdu4j.core.HexUtils;
 import apdu4j.core.BIBO;
 import apdu4j.core.BIBOException;
+import apdu4j.core.HexUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -53,68 +53,59 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.MGF1ParameterSpec;
 import java.util.*;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 // Delivers a service to a card
-public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.DeliveryResult> {
+public class ServiceDeliverySession implements Callable<ServiceDeliverySession.DeliveryResult> {
     private final static Logger logger = LoggerFactory.getLogger(ServiceDeliverySession.class);
     private final static long SESSION_TIMEOUT_MINUTES = 15;
-    private long sessionTimeout;
+    private long sessionTimeoutMillis;
     private final FidesmoApiClient client;
-    private final BIBO bibo;
+    private final Supplier<BIBO> biboSupplier; // A supplier to make sure a right thread-local is given when run in executor thread
     private final FidesmoCard card;
     private final FormHandler formHandler;
     private final String appId;
     private final String serviceId;
     private final ObjectMapper mapper = new ObjectMapper();
-    // For cancelation and threading and cleanup
-    private final AtomicReference<String> cancelDeliveryWithMessage = new AtomicReference<>("Delivery cancelled");
-    private volatile Thread runner = null;
-    private final CountDownLatch latch = new CountDownLatch(1);
+    // For cancellation and threading and cleanup
     final ArrayList<Runnable> cleanups = new ArrayList<>();
 
-    private ServiceDeliverySession(BIBO bibo, FidesmoCard card, FidesmoApiClient client, String appId, String serviceId, FormHandler formHandler) {
+    private ServiceDeliverySession(Supplier<BIBO> biboSupplier, FidesmoCard card, FidesmoApiClient client, String appId, String serviceId, FormHandler formHandler) {
         this.card = card;
-        this.bibo = bibo;
+        this.biboSupplier = biboSupplier;
         this.client = client;
         this.formHandler = formHandler;
         this.appId = appId;
         this.serviceId = serviceId;
-        setTimeout(SESSION_TIMEOUT_MINUTES);
+        setTimeoutMinutes(SESSION_TIMEOUT_MINUTES);
     }
 
-    public void setTimeout(long minutes) {
-        sessionTimeout = minutes * 60 * 1000;
+    public void setTimeoutMinutes(long minutes) {
+        sessionTimeoutMillis = TimeUnit.MINUTES.toMillis(minutes);
     }
 
-    public static ServiceDeliverySession getInstance(BIBO bibo, FidesmoCard card, FidesmoApiClient client, String appId, String serviceId, FormHandler formHandler) {
-        return new ServiceDeliverySession(bibo, card, client, appId, serviceId, formHandler);
+    public static ServiceDeliverySession getInstance(Supplier<BIBO> biboSupplier, FidesmoCard card, FidesmoApiClient client, String appId, String serviceId, FormHandler formHandler) {
+        return new ServiceDeliverySession(biboSupplier, card, client, appId, serviceId, formHandler);
     }
 
     @Override
-    public DeliveryResult get() throws FDSMException {
-        if (runner != null)
-            throw new IllegalStateException("ServiceDeliverySession is single-use!");
-
-        runner = Thread.currentThread();
+    public DeliveryResult call() throws FDSMException {
+        BIBO bibo = biboSupplier.get();
         try {
-            return deliver(appId, serviceId);
+            return deliver(bibo, appId, serviceId);
         } catch (IOException | BIBOException | UnsupportedCallbackException e) {
-            throw new FDSMException(e.getMessage());
+            throw new FDSMException(e.getMessage(), e);
         } finally {
             // Do any cleanups. We run them here
             for (Runnable r : cleanups)
                 r.run();
-            // Delivery done
-            latch.countDown();
         }
     }
 
-    @Deprecated
-    public DeliveryResult deliver(String appId, String serviceId) throws IOException, UnsupportedCallbackException {
+    public DeliveryResult deliver(BIBO bibo, String appId, String serviceId) throws IOException, UnsupportedCallbackException {
         // Address #4
         JsonNode deviceInfo = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(card.getCIN()), new BigInteger(1, card.getBatchId()).toString()));
         byte[] iin = HexUtils.decodeHexString_imp(deviceInfo.get("iin").asText());
@@ -126,7 +117,7 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
 
         // We do not support paid services
         if (service.has("price")) {
-            throw new NotSupportedException("Services requiring payment are not supported by fdsm. Please use the Android app!");
+            throw new FDSMException("Services requiring payment are not supported by fdsm. Please use the Android app!");
         }
 
         JsonNode description = service.get("description");
@@ -183,7 +174,7 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
         logger.info("Session ID: {}", sessionId);
 
         try {
-            return deliveryLoop(sessionId, spKey);
+            return deliveryLoop(bibo, sessionId, spKey);
         } catch (Exception e) {
             notifyDeliveryFailure(sessionId, e.getMessage());
             // And escalate the exception to caller as well.
@@ -191,18 +182,7 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
         }
     }
 
-    public boolean await(long timeout, TimeUnit unit) throws InterruptedException {
-        return latch.await(timeout, unit);
-    }
-
-    public void cancel(String message) {
-        if (runner == null)
-            throw new IllegalStateException("Delivery not started!");
-        cancelDeliveryWithMessage.set(message);
-        runner.interrupt();
-    }
-
-    protected DeliveryResult deliveryLoop(String sessionId, PublicKey spKey) throws IOException, UnsupportedCallbackException {
+    protected DeliveryResult deliveryLoop(BIBO bibo, String sessionId, PublicKey spKey) throws IOException, UnsupportedCallbackException {
         ObjectNode fetchrequest = emptyFetchRequest(sessionId);
         long lastActivity = System.currentTimeMillis();
 
@@ -236,10 +216,11 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
                 }
 
                 // Process operations
+                deliveryInterruptionPoint();
                 String operationType = fetch.get("operationType").asText();
                 switch (operationType) {
                     case "transceive":
-                        fetchrequest = processTransmitOperation(fetch.get("operationId"), sessionId);
+                        fetchrequest = processTransmitOperation(bibo, fetch.get("operationId"), sessionId);
                         break;
                     case "user-interaction":
                         fetchrequest = processUIOperation(fetch, sessionId, spKey);
@@ -248,13 +229,13 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
                         fetchrequest = processUserAction(fetch, sessionId);
                         break;
                     default:
-                        throw new NotSupportedException("Unsupported operation: " + fetch);
+                        throw new FDSMException("Unsupported operation: " + fetch);
                 }
             } catch (HttpResponseException e) {
                 if (e.getStatusCode() == 503) {
                     long timeSpent = System.currentTimeMillis() - lastActivity;
-                    if (timeSpent < sessionTimeout) {
-                        logger.warn("Timeout, but re-trying for another {}", time((sessionTimeout - timeSpent)));
+                    if (timeSpent < sessionTimeoutMillis) {
+                        logger.warn("Timeout, but re-trying for another {}", time((sessionTimeoutMillis - timeSpent)));
                         continue;
                     }
                 }
@@ -263,7 +244,7 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
         }
     }
 
-    protected ObjectNode processTransmitOperation(JsonNode operationId, String sessionId) throws IOException {
+    protected ObjectNode processTransmitOperation(BIBO bibo, JsonNode operationId, String sessionId) throws IOException {
         ObjectNode transmitrequest = JsonNodeFactory.instance.objectNode();
         transmitrequest.set("uuid", operationId);
         transmitrequest.put("open", true);
@@ -275,7 +256,6 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
             // Check if there are commands
             if (commands.size() > 0) {
                 ArrayList<String> responses = new ArrayList<>();
-
                 for (JsonNode cmd : commands) {
                     deliveryInterruptionPoint();
                     responses.add(HexUtils.bin2hex(bibo.transceive(HexUtils.hex2bin(cmd.asText()))));
@@ -304,9 +284,9 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
             try {
                 Thread.sleep(500);
             } catch (InterruptedException iex) {
-                throw new IOException("Thread was interrupted", iex);
+                // Set the flag again and let deliveryLoop finish
+                Thread.currentThread().interrupt();
             }
-
             return rpcWithRetry(uri, request, retries - 1);
         } else {
             throw new IOException("Unable to fetch request after all retries");
@@ -500,12 +480,9 @@ public class ServiceDeliverySession implements Supplier<ServiceDeliverySession.D
     }
 
     protected void deliveryInterruptionPoint() {
-        if (Thread.currentThread().isInterrupted()) {
-            logger.info("Delivery interrupted");
-            String msg = cancelDeliveryWithMessage.get();
-            if (msg == null)
-                msg = "Delivery interrupted";
-            throw new UserCancelledException(msg);
+        if (Thread.interrupted()) {
+            logger.info("Interrupted - cancelling");
+            throw new CancellationException("Interrupted");
         }
     }
 

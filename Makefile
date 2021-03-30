@@ -11,3 +11,9 @@ release:
 	git tag "v$(shell egrep -o "([0-9]{1,}\.)+[0-9]{2,}" pom.xml | head -1)"
 	./mvnw versions:set -DnextSnapshot=true
 	git commit -m "Set version to next snapshot" .
+
+dep:
+	./mvnw clean install
+
+test:
+	./mvnw clean verify
