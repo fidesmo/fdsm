@@ -17,7 +17,7 @@
     </modules>
 
     <!-- Necessary metadata for Maven Central -->
-    <name>FDSM utility</name>
+    <name>FDSM toolbox</name>
     <description>Swiss Army Knife for working with Fidesmo devices and Fidesmo API</description>
     <url>https://developer.fidesmo.com</url>
 
@@ -53,25 +53,6 @@
         </repository>
     </distributionManagement>
 
-    <!-- Always pick up private deps -->
-    <repositories>
-        <repository>
-            <id>javacard-pro</id>
-            <url>https://javacard.pro/maven/</url>
-        </repository>
-        <repository>
-            <id>javacard-pro-snapshots</id>
-            <url>https://javacard.pro/maven/SNAPSHOTS/</url>
-            <snapshots>
-                <enabled>true</enabled>
-                <updatePolicy>interval:60</updatePolicy>
-                <checksumPolicy>fail</checksumPolicy>
-            </snapshots>
-            <releases>
-                <enabled>false</enabled>
-            </releases>
-        </repository>
-    </repositories>
     <profiles>
         <!-- For pushing to Maven central -->
         <profile>

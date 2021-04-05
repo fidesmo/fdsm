@@ -20,13 +20,13 @@
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
             <artifactId>capfile</artifactId>
-            <version>21.03.07</version>
+            <version>21.04.05</version>
         </dependency>
         <!-- Card reader access -->
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
             <artifactId>apdu4j-core</artifactId>
-            <version>2020b3-SNAPSHOT</version>
+            <version>2020r3</version>
         </dependency>
         <!-- API access: HTTP/WebSocket TODO: transition to OkHttp -->
         <dependency>
