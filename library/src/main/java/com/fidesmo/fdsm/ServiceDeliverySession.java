@@ -21,9 +21,7 @@
  */
 package com.fidesmo.fdsm;
 
-import apdu4j.core.BIBO;
-import apdu4j.core.BIBOException;
-import apdu4j.core.HexUtils;
+import apdu4j.core.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -72,6 +70,9 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
     private final ObjectMapper mapper = new ObjectMapper();
     // For cancellation and threading and cleanup
     final ArrayList<Runnable> cleanups = new ArrayList<>();
+
+    // Keeps track of last APDU
+    private boolean wasInitializeUpdate = false;
 
     private ServiceDeliverySession(Supplier<BIBO> biboSupplier, FidesmoCard card, FidesmoApiClient client, String appId, String serviceId, FormHandler formHandler) {
         this.card = card;
@@ -258,9 +259,17 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
                 ArrayList<String> responses = new ArrayList<>();
                 for (JsonNode cmd : commands) {
                     deliveryInterruptionPoint();
-                    responses.add(HexUtils.bin2hex(bibo.transceive(HexUtils.hex2bin(cmd.asText()))));
+                    byte[] cmdbytes = HexUtils.hex2bin(cmd.asText());
+                    byte[] response = bibo.transceive(cmdbytes);
+                    ResponseAPDU responseAPDU = new ResponseAPDU(response);
+                    boolean isInit = isInitializeUpdate(cmdbytes);
+                    boolean isExtAuth = isExternalAuthenticate(cmdbytes);
+                    if (isInit || (isExtAuth && wasInitializeUpdate) && responseAPDU.getSW() != 0x9000) {
+                        throw new FDSMException("Authentication failed, please contact Fidesmo Support");
+                    }
+                    wasInitializeUpdate = isInit;
+                    responses.add(HexUtils.bin2hex(response));
                 }
-
                 transmitrequest.set("responses", mapper.valueToTree(responses));
             } else {
                 break;
@@ -269,6 +278,16 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
 
         // Send an empty fetch request when APDU-s are done
         return emptyFetchRequest(sessionId);
+    }
+
+    static boolean isInitializeUpdate(byte[] apdu) {
+        CommandAPDU cmdapdu = new CommandAPDU(apdu);
+        return (cmdapdu.getCLA() == 0x80) && (cmdapdu.getINS() == 0x50);
+    }
+
+    static boolean isExternalAuthenticate(byte[] apdu) {
+        CommandAPDU cmdapdu = new CommandAPDU(apdu);
+        return (cmdapdu.getCLA() == 0x84) && (cmdapdu.getINS() == 0x82);
     }
 
     /**
