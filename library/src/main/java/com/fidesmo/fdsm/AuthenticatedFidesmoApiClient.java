@@ -64,9 +64,9 @@ public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
     // Upload a CAP file
     public void upload(CAPFile cap) throws IOException {
         Optional<String> javaCardVersion = cap.guessJavaCardVersion();
-        List<String> unsupportedVersions = Arrays.asList("3.0.5", "3.1.0");
+        List<String> unsupportedVersions = Arrays.asList("3.1.0");
         if (!javaCardVersion.isPresent() || unsupportedVersions.contains(javaCardVersion.get())) {
-            throw new IOException("Fidesmo supports JavaCard up to version 3.0.4");
+            throw new IOException("Fidesmo supports JavaCard up to version 3.0.5");
         }
 
         HttpPost post = new HttpPost(getURI(ELF_URL));
