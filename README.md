@@ -5,7 +5,7 @@ FDSM is _the_ developer's Swiss Army Knife for working with a [Fidesmo device](h
 # Getting started
 
 You will need the following:
-- Latest [Java 1.8](http://www.oracle.com/technetwork/java/javase/downloads/jre8-downloads-2133155.html) for running the app
+- Latest [Java 11](https://adoptopenjdk.net/) for running the app
 - a [Fidesmo Developer account](https://developer.fidesmo.com) for your `$FIDESMO_AUTH` (`appId:appKey`)
 - a Fidesmo device (get one from the [shop](http://shop.fidesmo.com))
 - a PC/SC NFC reader (unless your developer device is the [Yubikey NEO with Fidesmo](http://shop.fidesmo.com/product/yubikey-neo-with-fidesmo))
