@@ -59,7 +59,7 @@ abstract class CommandLineInterface {
     final static protected OptionSpec<Void> OPT_CARD_APPS = parser.accepts("card-apps", "List apps on the card");
     final static protected OptionSpec<Void> OPT_CARD_INFO = parser.accepts("card-info", "Show info about the card");
     final static protected OptionSpec<Void> OPT_OFFLINE = parser.accepts("offline", "Do not connect to Fidesmo");
-    final static protected OptionSpec<HexBytes> OPT_SECURE_APDU = parser.accepts("secure-apdu", "Send APDU via secure channel").withRequiredArg().ofType(HexBytes.class);    
+    final static protected OptionSpec<HexBytes> OPT_SECURE_APDU = parser.accepts("secure-apdu", "Send APDU via secure channel").withRequiredArg().ofType(HexBytes.class);
 
     final static protected OptionSpec<String> OPT_STORE_APPS = parser.accepts("store-apps", "List apps in the store").withOptionalArg().describedAs("status");
     final static protected OptionSpec<Void> OPT_FLUSH_APPLETS = parser.accepts("flush-applets", "Flush all applets from Fidesmo");
