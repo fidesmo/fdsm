@@ -371,11 +371,7 @@ public class Main extends CommandLineInterface {
                     } else {
                         success("No applications");
                     }
-                } else if (requiresAuthentication()) { // XXX
-                    if (!auth.getUsername().isPresent()) {
-                        throw new IllegalArgumentException("Application ID is required. Use --auth or FIDESMO_AUTH with appId:appKey format");
-                    }
-
+                } else if (requiresAuthentication()) {
                     AuthenticatedFidesmoApiClient authenticatedClient = getAuthenticatedClient();
                     FormHandler formHandler = getCommandLineFormHandler();
 
@@ -641,7 +637,11 @@ public class Main extends CommandLineInterface {
     }
 
     private static String getAppId() {
-        return auth.getUsername().orElseThrow(() -> new IllegalArgumentException("Operation requires appId authentication with appKey!"));
+        if (args.valueOf(OPT_APP_ID) == null) {
+            throw new IllegalArgumentException("Operation requires app-id parameter!");            
+        } else {
+            return args.valueOf(OPT_APP_ID).toString();
+        }        
     }
 
     private static class FidesmoService {

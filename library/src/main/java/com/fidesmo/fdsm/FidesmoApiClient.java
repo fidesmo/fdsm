@@ -203,8 +203,7 @@ public class FidesmoApiClient {
         if (n == null)
             return "";
         if (n.size() > 0) {
-            Map<String, Object> langs = mapper.convertValue(n, new TypeReference<>() {
-            });
+            Map<String, Object> langs = mapper.convertValue(n, new TypeReference<Map<String, Object>>() {});
             Map.Entry<String, Object> first = langs.entrySet().iterator().next();
             return langs.getOrDefault(Locale.getDefault().getLanguage(), langs.getOrDefault("en", first.getValue())).toString();
         } else {
