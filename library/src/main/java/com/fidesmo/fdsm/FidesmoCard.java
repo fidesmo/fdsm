@@ -221,7 +221,7 @@ public class FidesmoCard {
                 .filter(FidesmoCard::check)
                 .flatMap(a -> fetchTag(0x45, a));
 
-        cin = pv3cin.or(() -> pv2cin).orElse(null);
+        cin = pv3cin.orElseGet(() -> pv2cin.orElse(null));
 
         cplc = response(commands, getCPLC).filter(FidesmoCard::check).map(a -> {
             byte[] data = a.getData();
@@ -240,7 +240,7 @@ public class FidesmoCard {
                 .map(FidesmoCard::fixup)
                 .flatMap(a -> fetchTag(0x42, a));
 
-        batch = pv3batch.or(() -> pv2batch).orElse(null);
+        batch = pv3batch.orElseGet(() -> pv2batch.orElse(null));
 
         if (cin == null || batch == null)
             return Optional.empty();
