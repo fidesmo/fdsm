@@ -72,7 +72,7 @@ abstract class CommandLineInterface {
     final static protected OptionSpec<String> OPT_UNINSTALL = parser.accepts("uninstall", "Uninstall CAP from card").withRequiredArg().describedAs("CAP file / AID");
 
     final static protected OptionSpec<String> OPT_APP_ID = parser.accepts("app-id", "Application identifier")
-                                                                .requiredIf(OPT_STORE_DATA, OPT_SECURE_APDU, OPT_UNINSTALL, OPT_INSTALL, OPT_UPLOAD, OPT_CLEANUP)
+                                                                .requiredIf(OPT_STORE_DATA, OPT_SECURE_APDU, OPT_UNINSTALL, OPT_INSTALL, OPT_UPLOAD, OPT_CLEANUP, OPT_LIST_APPLETS, OPT_FLUSH_APPLETS, OPT_DELETE_APPLET)
                                                                 .withRequiredArg().describedAs("appId");
     final static protected OptionSpec<Integer> OPT_QA = parser.accepts("qa", "Run a QA support session").withOptionalArg().ofType(Integer.class).describedAs("QA number");
 

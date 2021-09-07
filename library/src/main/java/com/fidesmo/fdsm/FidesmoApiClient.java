@@ -48,7 +48,7 @@ import java.util.Locale;
 import java.util.Map;
 
 public class FidesmoApiClient {
-    public static final String APIv2 = "https://api.fidesmo.com/v2/";
+    public static final String APIv2 = "https://api.fidesmo.com/";
 
     public static final String APPS_URL = "apps%s";
     public static final String APP_INFO_URL = "apps/%s";
@@ -59,8 +59,8 @@ public class FidesmoApiClient {
     public static final String SERVICE_RECIPE_URL = "apps/%s/services/%s/recipe";
     public static final String RECIPE_SERVICES_URL = "apps/%s/recipe-services";
 
-    public static final String ELF_URL = "executableLoadFiles";
-    public static final String ELF_ID_URL = "executableLoadFiles/%s";
+    public static final String CAPFILES_URL = "apps/%s/capfiles";
+    public static final String CAPFILES_ID_URL = "apps/%s/capfiles/%s";
 
     public static final String SERVICE_DELIVER_URL = "service/deliver";
     public static final String SERVICE_FETCH_URL = "service/fetch";
