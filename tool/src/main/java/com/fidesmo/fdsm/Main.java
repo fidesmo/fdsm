@@ -128,7 +128,7 @@ public class Main extends CommandLineInterface {
                         }
                     }
                     try {
-                        client.delete(client.getURI(FidesmoApiClient.ELF_ID_URL, id));
+                        client.delete(client.getURI(FidesmoApiClient.CAPFILES_ID_URL, getAppId(), id));
                         System.out.println(id + " deleted.");
                     } catch (HttpResponseException e) {
                         if (e.getStatusCode() == 404) {
@@ -140,7 +140,7 @@ public class Main extends CommandLineInterface {
 
                 // List applets
                 if (args.has(OPT_LIST_APPLETS)) {
-                    JsonNode applets = client.rpc(client.getURI(FidesmoApiClient.ELF_URL));
+                    JsonNode applets = client.rpc(client.getURI(FidesmoApiClient.CAPFILES_URL, getAppId()));
                     // Show applets, grouped by AID-s.
                     if (applets.size() > 0) {
                         Map<String, Map<String, String>> r = new HashMap<>();
@@ -211,12 +211,12 @@ public class Main extends CommandLineInterface {
                         client.put(uri, recipe);
                     } else {
                         CAPFile cap = CAPFile.fromStream(new FileInputStream(args.valueOf(OPT_UPLOAD)));
-                        client.upload(cap);
+                        client.upload(getAppId(), cap);
                     }
                 } else if (args.has(OPT_FLUSH_APPLETS)) {
-                    JsonNode applets = client.rpc(client.getURI(FidesmoApiClient.ELF_URL));
+                    JsonNode applets = client.rpc(client.getURI(FidesmoApiClient.CAPFILES_URL, getAppId()));
                     for (JsonNode e : applets) {
-                        client.delete(client.getURI(FidesmoApiClient.ELF_ID_URL, e.get("id").asText()));
+                        client.delete(client.getURI(FidesmoApiClient.CAPFILES_ID_URL, getAppId(), e.get("id").asText()));
                     }
                 }
             }
@@ -400,7 +400,7 @@ public class Main extends CommandLineInterface {
                             }
                         }
                         byte[] lfdbh = cap.getLoadFileDataHash("SHA-256");
-                        JsonNode applets = client.rpc(client.getURI(FidesmoApiClient.ELF_URL));
+                        JsonNode applets = client.rpc(client.getURI(FidesmoApiClient.CAPFILES_URL, getAppId()));
                         boolean present = false;
                         for (JsonNode e : applets) {
                             if (Arrays.equals(Hex.decodeHex(e.get("id").asText()), lfdbh)) {
@@ -409,7 +409,7 @@ public class Main extends CommandLineInterface {
                         }
                         // Upload
                         if (!present) {
-                            authenticatedClient.upload(cap);
+                            authenticatedClient.upload(getAppId(), cap);
                         }
                         ObjectNode recipe = RecipeGenerator.makeInstallRecipe(lfdbh, applet, instance, params);
                         FidesmoCard.deliverRecipe(bibo, fidesmoCard, authenticatedClient, formHandler, getAppId(), recipe);
