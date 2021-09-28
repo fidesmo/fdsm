@@ -42,12 +42,12 @@ import java.util.Optional;
 
 public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
 
-    private AuthenticatedFidesmoApiClient(ClientAuthentication auth, PrintStream apidump) {
-        super(auth, apidump);
+    private AuthenticatedFidesmoApiClient(String url, ClientAuthentication auth, PrintStream apidump) {
+        super(url, auth, apidump);
     }
 
-    public static AuthenticatedFidesmoApiClient getInstance(ClientAuthentication auth, PrintStream apidump) throws IllegalArgumentException {
-        return new AuthenticatedFidesmoApiClient(auth, apidump);
+    public static AuthenticatedFidesmoApiClient getInstance(String url, ClientAuthentication auth, PrintStream apidump) throws IllegalArgumentException {
+        return new AuthenticatedFidesmoApiClient(url, auth, apidump);
     }
 
     public void put(URI uri, ObjectNode json) throws IOException {
