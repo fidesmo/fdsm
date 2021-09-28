@@ -633,7 +633,7 @@ public class Main extends CommandLineInterface {
         if (auth == null) {
             throw new IllegalArgumentException("Provide authentication either via --auth or $FIDESMO_AUTH");
         }
-        return AuthenticatedFidesmoApiClient.getInstance(auth, apiTraceStream);
+        return AuthenticatedFidesmoApiClient.getInstance(apiurl, auth, apiTraceStream);
     }
 
     private static String getAppId() {

@@ -44,5 +44,5 @@ To produce a build, execute `./mvnw package` and use the generated `target/fdsm.
 command line arguments but some behavior can be tuned by setting environment
 variables.
 
-- `FIDESMO_AUTH` - the app ID and app key from developer portal in `appId:appKey` format, equivalent of using `--auth appId:appKey`
+- `FIDESMO_AUTH` - user and password, or token. Equivalent of using `--auth user:password` or `--auth token`
 - `FIDESMO_API_URL` - the URL of the the Fidesmo backend (do not change if unsure)
