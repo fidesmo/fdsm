@@ -39,7 +39,14 @@ software, but a wrapper to download the right version is included.
 
 To produce a build, execute `./mvnw package` and use the generated `target/fdsm.jar`.
 
-### Environment variables
+#### Releasing
+- To release run `make release` on up-to-date main/master branch.
+- After checking the output of the tests, `git push` to move to next version.
+- Run `git push --tags` to push the tag (generated in first step) and trigger automatic release with Github Actions.
+  - Manually pushing any tag named `v*` will also trigger the release. 
+- Update release description with the latest changes.
+
+## Environment variables
 `fdsm` is a command line application and takes most of its input from
 command line arguments but some behavior can be tuned by setting environment
 variables.
