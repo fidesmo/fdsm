@@ -305,8 +305,7 @@ public class Main extends CommandLineInterface {
                             int platformVersion = capabilities.get("platformVersion").asInt();
                             String platform = Optional.ofNullable(capabilities.get("osTypeVersionName")).map(JsonNode::asText).orElse("unknown");
                             if (verbose)
-                                System.out.format("IIN: %s%n", HexUtils.bin2hex(iin));
-                            // For platforms that are not yet supported by fdsm                            
+                                System.out.format("IIN: %s%n", HexUtils.bin2hex(iin));                            
                             System.out.format("OS type: %s (platform v%d)%n", platform, platformVersion);
                         }
                     } else {
