@@ -303,11 +303,10 @@ public class Main extends CommandLineInterface {
                             // Read capabilities
                             JsonNode capabilities = device.get("description").get("capabilities");
                             int platformVersion = capabilities.get("platformVersion").asInt();
-                            int platformType = capabilities.get("osTypeVersion").asInt();
+                            String platform = Optional.ofNullable(capabilities.get("osTypeVersionName")).map(JsonNode::asText).orElse("unknown");
                             if (verbose)
                                 System.out.format("IIN: %s%n", HexUtils.bin2hex(iin));
-                            // For platforms that are not yet supported by fdsm
-                            String platform = ChipPlatform.valueOf(platformType).map(ChipPlatform::toString).orElse("unknown");
+                            // For platforms that are not yet supported by fdsm                            
                             System.out.format("OS type: %s (platform v%d)%n", platform, platformVersion);
                         }
                     } else {
