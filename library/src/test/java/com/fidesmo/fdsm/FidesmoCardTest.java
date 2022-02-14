@@ -17,9 +17,9 @@ public class FidesmoCardTest {
                 "42030000C7430602396818B7440203009000"
         );
 
-        FidesmoCard card = FidesmoCard.detect(channel).get();
+        FidesmoCard card = FidesmoCard.detectOffline(channel).get();
         assertEquals(Hex.encodeHexString(card.getCIN()), "3d5f8004132eda");
-        assertEquals(Hex.encodeHexString(card.getBatchId()), "0000c7");
+        assertEquals(card.getBatchId(), 199);
     }
 
     @Test
@@ -32,8 +32,8 @@ public class FidesmoCardTest {
                 "420300008C4306023967FE8B419000"
         );
 
-        FidesmoCard card = FidesmoCard.detect(channel).get();
+        FidesmoCard card = FidesmoCard.detectOffline(channel).get();
         assertEquals(Hex.encodeHexString(card.getCIN()), "3d5f8004132eda");
-        assertEquals(Hex.encodeHexString(card.getBatchId()), "00008c");
+        assertEquals(card.getBatchId(), 140);
     }
 }

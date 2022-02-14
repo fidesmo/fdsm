@@ -43,7 +43,6 @@ import javax.security.auth.callback.TextOutputCallback;
 import javax.security.auth.callback.UnsupportedCallbackException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -107,7 +106,7 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
 
     public DeliveryResult deliver(BIBO bibo, String appId, String serviceId) throws IOException, UnsupportedCallbackException {
         // Address #4
-        JsonNode deviceInfo = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(card.getCIN()), new BigInteger(1, card.getBatchId()).toString()));
+        JsonNode deviceInfo = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(card.getCIN()), card.getBatchId()));
         byte[] iin = HexUtils.decodeHexString_imp(deviceInfo.get("iin").asText());
         JsonNode capabilities = deviceInfo.get("description").get("capabilities");
         int platformVersion = capabilities.get("platformVersion").asInt();
