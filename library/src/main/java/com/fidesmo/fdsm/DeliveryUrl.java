@@ -40,7 +40,7 @@ public class DeliveryUrl {
    */
   public static DeliveryUrl parse(String deliveryString) {
     try {
-      if (deliveryString.startsWith("https://") || deliveryString.startsWith("https://")) {
+      if (deliveryString.startsWith("http://") || deliveryString.startsWith("https://")) {
         URI uri = new URI(deliveryString);
         // Expected format is /{appId}/services/{service}
         Matcher m = URI_PATH_PATTERN.matcher(uri.getPath());
@@ -52,17 +52,15 @@ public class DeliveryUrl {
       } if (deliveryString.startsWith("wss://") || deliveryString.startsWith("ws://")) {
         new URI(deliveryString); // validate a string is a proper URI
         return new DeliveryUrl(Optional.empty(), deliveryString, true);
-      } else {
-        if (deliveryString.contains("/")) {
-          String[] bits = deliveryString.split("/");
-          if (bits.length == 2 && bits[0].length() == 8) {
-            return new DeliveryUrl(Optional.of(bits[0]), bits[1], false);
-          } else {
-            throw new IllegalArgumentException("Invalid format for service: " + deliveryString);
-          }        
+      } else if (deliveryString.contains("/")) {
+        String[] bits = deliveryString.split("/");
+        if (bits.length == 2 && bits[0].length() == 8) {
+          return new DeliveryUrl(Optional.of(bits[0]), bits[1], false);
         } else {
-          return new DeliveryUrl(Optional.empty(), deliveryString, false);
-        }
+          throw new IllegalArgumentException("Invalid format for service: " + deliveryString);
+        }        
+      } else {
+        return new DeliveryUrl(Optional.empty(), deliveryString, false);
       }
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException("Invalid URL syntax: " + e.getMessage());
