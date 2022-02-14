@@ -271,7 +271,6 @@ public class FidesmoCard {
                 JsonNode detect = client.rpc(client.getURI(FidesmoApiClient.DEVICE_IDENTIFY_URL, HexUtils.bin2hex(cplc)));
                 
                 if (detect != null) {
-                    // "batchingUrl" parameter is ignored for now
                     byte[] fid = Hex.decodeHex(detect.get("cin").asText());
                     int batchId = detect.get("batchId").asInt();
                     return Optional.of(new FidesmoCard(fid, cplc, batchId, false));
