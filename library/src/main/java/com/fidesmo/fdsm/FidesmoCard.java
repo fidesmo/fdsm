@@ -22,16 +22,22 @@
 package com.fidesmo.fdsm;
 
 import apdu4j.core.*;
+
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.payneteasy.tlv.BerTag;
 import com.payneteasy.tlv.BerTlv;
 import com.payneteasy.tlv.BerTlvParser;
 import com.payneteasy.tlv.BerTlvs;
+
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pro.javacard.AID;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.net.URI;
 import java.util.*;
 
@@ -136,22 +142,33 @@ public class FidesmoCard {
 
     private final byte[] cin;
     private final byte[] cplc;
-    private final byte[] batchId;
+    private final int batchId;
+    /** Indicates that device is fully batched or requires batching operation otherwise */
+    private final boolean batched;
 
-    public FidesmoCard(byte[] fid, byte[] cplc, byte[] batchId) {
-        if (batchId == null) throw new NullPointerException("batch can't be null");
+    public FidesmoCard(byte[] fid, byte[] cplc, int batchId, boolean batched) {
         if (fid == null) throw new NullPointerException("fid can't be null");
         this.cin = fid.clone();
         this.cplc = cplc == null ? null : cplc.clone();
-        this.batchId = batchId.clone();
+        this.batchId = batchId;
+        this.batched = batched;
     }
 
     public static FidesmoCard dummy() {
-        return new FidesmoCard(new byte[7], null, new byte[4]);
+        return new FidesmoCard(new byte[7], null, 0, true);
     }
 
+    @Deprecated
     public static Optional<FidesmoCard> detect(BIBO channel) {
+        return detectOffline(channel);
+    }
+
+    public static Optional<FidesmoCard> detectOffline(BIBO channel) {
         return detect(probe(channel));
+    }
+
+    public static Optional<FidesmoCard> detectOnline(BIBO channel, FidesmoApiClient client) {
+        return detect(probe(channel), client);
     }
 
     static final HexBytes selectISD = HexBytes.b(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, 0x00).getBytes());
@@ -208,6 +225,10 @@ public class FidesmoCard {
     }
 
     public static Optional<FidesmoCard> detect(Map<HexBytes, byte[]> commands) {
+        return detect(commands, null);
+    }
+
+    public static Optional<FidesmoCard> detect(Map<HexBytes, byte[]> commands, FidesmoApiClient client) {
         final byte[] cplc;
         final byte[] cin;
         final byte[] batch;
@@ -242,9 +263,26 @@ public class FidesmoCard {
 
         batch = pv3batch.orElseGet(() -> pv2batch.orElse(null));
 
-        if (cin == null || batch == null)
-            return Optional.empty();
-        return Optional.of(new FidesmoCard(cin, cplc, batch));
+        if (cin == null || batch == null) {
+            if (client == null) return Optional.empty();
+            
+            // Try to identify device on the server side using CPLC data
+            try {
+                JsonNode detect = client.rpc(client.getURI(FidesmoApiClient.DEVICE_IDENTIFY_URL, HexUtils.bin2hex(cplc)));
+                
+                if (detect != null) {
+                    byte[] fid = Hex.decodeHex(detect.get("cin").asText());
+                    int batchId = detect.get("batchId").asInt();
+                    return Optional.of(new FidesmoCard(fid, cplc, batchId, false));
+                }
+            } catch(DecoderException dex) {
+                throw new RuntimeException("Failed to decode FID from server: ", dex);
+            } catch(IOException ex) {
+                return Optional.empty();
+            }
+        }
+            
+        return Optional.of(new FidesmoCard(cin, cplc, new BigInteger(1, batch).intValue(), true));
     }
 
     public static boolean deliverRecipe(BIBO bibo, FidesmoCard card, AuthenticatedFidesmoApiClient
@@ -283,8 +321,12 @@ public class FidesmoCard {
         return cin.clone();
     }
 
-    public byte[] getBatchId() {
-        return batchId.clone();
+    public int getBatchId() {
+        return batchId;
+    }
+
+    public boolean isBatched() {
+        return batched;
     }
 
     public byte[] getCPLC() {

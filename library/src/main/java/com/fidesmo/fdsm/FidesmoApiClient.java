@@ -69,6 +69,7 @@ public class FidesmoApiClient {
     public static final String CONNECTOR_URL = "connector/json";
 
     public static final String DEVICES_URL = "devices/%s?batchId=%s";
+    public static final String DEVICE_IDENTIFY_URL = "devices/identify?cplc=%s";
 
     private PrintStream apidump;
     private final CloseableHttpClient http;
@@ -169,9 +170,9 @@ public class FidesmoApiClient {
         }
     }
 
-    public URI getURI(String template, String... args) {
+    public URI getURI(String template, Object... args) {
         try {
-            return new URI(String.format(apiurl + template, (Object[]) args));
+            return new URI(String.format(apiurl + template, args));
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException("Invalid url: " + e.getMessage(), e);
         }
