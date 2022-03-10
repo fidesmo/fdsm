@@ -167,8 +167,8 @@ public class FidesmoCard {
         return detect(probe(channel));
     }
 
-    public static Optional<FidesmoCard> detectOnline(BIBO channel, FidesmoApiClient client) {
-        return detect(probe(channel), client);
+    public static Optional<FidesmoCard> detectOnline(BIBO channel, FidesmoApiClient client, Optional<byte[]> uid) {
+        return detect(probe(channel), client, uid);
     }
 
     static final HexBytes selectISD = HexBytes.b(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, 0x00).getBytes());
@@ -207,7 +207,7 @@ public class FidesmoCard {
     }
 
     static Optional<ResponseAPDU> response(Map<HexBytes, byte[]> map, HexBytes key) {
-        return Optional.ofNullable(map.get(key)).map(r -> new ResponseAPDU(r));
+        return Optional.ofNullable(map.get(key)).map(ResponseAPDU::new);
     }
 
     static boolean check(ResponseAPDU r) {
@@ -225,10 +225,10 @@ public class FidesmoCard {
     }
 
     public static Optional<FidesmoCard> detect(Map<HexBytes, byte[]> commands) {
-        return detect(commands, null);
+        return detect(commands, null, Optional.empty());
     }
 
-    public static Optional<FidesmoCard> detect(Map<HexBytes, byte[]> commands, FidesmoApiClient client) {
+    public static Optional<FidesmoCard> detect(Map<HexBytes, byte[]> commands, FidesmoApiClient client, Optional<byte[]> uid) {
         final byte[] cplc;
         final byte[] cin;
         final byte[] batch;
@@ -268,7 +268,10 @@ public class FidesmoCard {
             
             // Try to identify device on the server side using CPLC data
             try {
-                JsonNode detect = client.rpc(client.getURI(FidesmoApiClient.DEVICE_IDENTIFY_URL, HexUtils.bin2hex(cplc)));
+                URI uri = uid
+                        .map(value -> client.getURI(FidesmoApiClient.DEVICE_IDENTIFY_WITH_UID_URL, HexUtils.bin2hex(cplc), value))
+                        .orElse(client.getURI(FidesmoApiClient.DEVICE_IDENTIFY_URL, HexUtils.bin2hex(cplc)));
+                JsonNode detect = client.rpc(uri);
                 
                 if (detect != null) {
                     byte[] fid = Hex.decodeHex(detect.get("cin").asText());

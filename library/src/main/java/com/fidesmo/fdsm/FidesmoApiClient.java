@@ -70,6 +70,7 @@ public class FidesmoApiClient {
 
     public static final String DEVICES_URL = "devices/%s?batchId=%s";
     public static final String DEVICE_IDENTIFY_URL = "devices/identify?cplc=%s";
+    public static final String DEVICE_IDENTIFY_WITH_UID_URL = "devices/identify?cplc=%s&uid=%s";
 
     private PrintStream apidump;
     private final CloseableHttpClient http;
