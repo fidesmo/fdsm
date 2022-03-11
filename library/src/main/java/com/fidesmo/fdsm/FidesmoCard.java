@@ -140,22 +140,24 @@ public class FidesmoCard {
             FIDESMO_APP_AID.getBytes(), FIDESMO_PLATFORM_AID.getBytes()
     ));
 
+    private final Optional<byte[]> uid;
     private final byte[] cin;
     private final byte[] cplc;
     private final int batchId;
     /** Indicates that device is fully batched or requires batching operation otherwise */
     private final boolean batched;
 
-    public FidesmoCard(byte[] fid, byte[] cplc, int batchId, boolean batched) {
+    public FidesmoCard(byte[] fid, byte[] cplc, int batchId, boolean batched, Optional<byte[]> uid) {
         if (fid == null) throw new NullPointerException("fid can't be null");
         this.cin = fid.clone();
         this.cplc = cplc == null ? null : cplc.clone();
         this.batchId = batchId;
         this.batched = batched;
+        this.uid = uid;
     }
 
     public static FidesmoCard dummy() {
-        return new FidesmoCard(new byte[7], null, 0, true);
+        return new FidesmoCard(new byte[7], null, 0, true, Optional.empty());
     }
 
     @Deprecated
@@ -167,10 +169,11 @@ public class FidesmoCard {
         return detect(probe(channel));
     }
 
-    public static Optional<FidesmoCard> detectOnline(BIBO channel, FidesmoApiClient client, Optional<byte[]> uid) {
-        return detect(probe(channel), client, uid);
+    public static Optional<FidesmoCard> detectOnline(BIBO channel, FidesmoApiClient client) {
+        return detect(probe(channel), client);
     }
 
+    static final HexBytes getUID = HexBytes.b(new CommandAPDU(0xFF, 0xCA, 0x00, 0x00, 0x00).getBytes());
     static final HexBytes selectISD = HexBytes.b(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, 0x00).getBytes());
     static final HexBytes getCPLC = HexBytes.b(new CommandAPDU(0x80, 0xCA, 0x9F, 0x7F, 0x00).getBytes());
     static final HexBytes getDataCIN = HexBytes.b(new CommandAPDU(0x80, 0xCA, 0x00, 0x45, 0x00).getBytes());
@@ -181,8 +184,11 @@ public class FidesmoCard {
         // preserve order, just for fun
         Map<HexBytes, byte[]> r = new LinkedHashMap<>();
         APDUBIBO bibo = new APDUBIBO(channel);
+        // Get UID
+        ResponseAPDU response = bibo.transmit(new CommandAPDU(getUID.value()));
+        r.put(getUID, response.getBytes());
         // Select ISD
-        ResponseAPDU response = bibo.transmit(new CommandAPDU(selectISD.value()));
+        response = bibo.transmit(new CommandAPDU(selectISD.value()));
         r.put(selectISD, response.getBytes());
         if (response.getSW() == 0x9000) {
             // Get CPLC (always available for PV2)
@@ -225,10 +231,11 @@ public class FidesmoCard {
     }
 
     public static Optional<FidesmoCard> detect(Map<HexBytes, byte[]> commands) {
-        return detect(commands, null, Optional.empty());
+        return detect(commands, null);
     }
 
-    public static Optional<FidesmoCard> detect(Map<HexBytes, byte[]> commands, FidesmoApiClient client, Optional<byte[]> uid) {
+    public static Optional<FidesmoCard> detect(Map<HexBytes, byte[]> commands, FidesmoApiClient client) {
+        final Optional<byte[]> uid;
         final byte[] cplc;
         final byte[] cin;
         final byte[] batch;
@@ -243,6 +250,8 @@ public class FidesmoCard {
                 .flatMap(a -> fetchTag(0x45, a));
 
         cin = pv3cin.orElseGet(() -> pv2cin.orElse(null));
+
+        uid = response(commands, getUID).filter(FidesmoCard::check).map(ResponseAPDU::getData);
 
         cplc = response(commands, getCPLC).filter(FidesmoCard::check).map(a -> {
             byte[] data = a.getData();
@@ -276,7 +285,7 @@ public class FidesmoCard {
                 if (detect != null) {
                     byte[] fid = Hex.decodeHex(detect.get("cin").asText());
                     int batchId = detect.get("batchId").asInt();
-                    return Optional.of(new FidesmoCard(fid, cplc, batchId, false));
+                    return Optional.of(new FidesmoCard(fid, cplc, batchId, false, uid));
                 }
             } catch(DecoderException dex) {
                 throw new RuntimeException("Failed to decode FID from server: ", dex);
@@ -285,7 +294,7 @@ public class FidesmoCard {
             }
         }
             
-        return Optional.of(new FidesmoCard(cin, cplc, new BigInteger(1, batch).intValue(), true));
+        return Optional.of(new FidesmoCard(cin, cplc, new BigInteger(1, batch).intValue(), true, uid));
     }
 
     public static boolean deliverRecipe(BIBO bibo, FidesmoCard card, AuthenticatedFidesmoApiClient
@@ -334,6 +343,10 @@ public class FidesmoCard {
 
     public byte[] getCPLC() {
         return cplc.clone();
+    }
+
+    public Optional<byte[]> getUID() {
+        return uid;
     }
 
     private static boolean valid(byte[] v) {

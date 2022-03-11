@@ -262,7 +262,7 @@ public class Main extends CommandLineInterface {
                 Card card = terminal.connect("*");
                 Optional<byte[]> uid = getUID(card.getBasicChannel());
                 APDUBIBO bibo = new APDUBIBO(CardBIBO.wrap(card));
-                Optional<FidesmoCard> fidesmoMetadata = args.has(OPT_OFFLINE) ? FidesmoCard.detectOffline(bibo) : FidesmoCard.detectOnline(bibo, client, uid);
+                Optional<FidesmoCard> fidesmoMetadata = args.has(OPT_OFFLINE) ? FidesmoCard.detectOffline(bibo) : FidesmoCard.detectOnline(bibo, client);
 
                 // Allows to run with any card
                 if (args.has(OPT_QA)) {
@@ -307,7 +307,7 @@ public class Main extends CommandLineInterface {
                             System.out.format("OS type: %s (platform v%d)%n", platform, platformVersion);
 
                             if (!fidesmoCard.isBatched()) {                                
-                                String batchingInstruction = getBatchingUrl(client, fidesmoCard.getCPLC(), uid).map(delivery -> {
+                                String batchingInstruction = getBatchingUrl(client, fidesmoCard.getCPLC(), fidesmoCard.getUID()).map(delivery -> {
                                     String options = delivery.getAppId().map(appId -> String.format("%s/%s", appId, delivery.getService())).orElse(delivery.getService());
                                     return String.format(". Use \"fdsm --run %s\" to complete batching procedure", options);                                    
                                 }).orElse(""); // batching procedure can't be completed
@@ -323,7 +323,7 @@ public class Main extends CommandLineInterface {
 
                 if (args.has(OPT_RUN)) {
                     if (fidesmoMetadata.isPresent()) {
-                        ensureBatched(bibo, client, fidesmoMetadata.get(), uid);
+                        ensureBatched(bibo, client, fidesmoMetadata.get());
                     }
 
                     DeliveryUrl delivery = DeliveryUrl.parse(args.valueOf(OPT_RUN));
@@ -363,7 +363,7 @@ public class Main extends CommandLineInterface {
                 }
                 
                 if (args.has(OPT_CARD_APPS)) {
-                    FidesmoCard fidesmoCard = ensureBatched(bibo, client, requireDevice(fidesmoMetadata),uid);
+                    FidesmoCard fidesmoCard = ensureBatched(bibo, client, requireDevice(fidesmoMetadata));
                     List<byte[]> apps = FidesmoCard.listApps(bibo);
                     if (apps.size() > 0) {
                         printApps(queryApps(client, apps, verbose), System.out, verbose);
@@ -375,7 +375,7 @@ public class Main extends CommandLineInterface {
                     FormHandler formHandler = getCommandLineFormHandler();
 
                     if (args.has(OPT_INSTALL)) {
-                        FidesmoCard fidesmoCard = ensureBatched(bibo, client, requireDevice(fidesmoMetadata),uid);
+                        FidesmoCard fidesmoCard = ensureBatched(bibo, client, requireDevice(fidesmoMetadata));
                         CAPFile cap = CAPFile.fromStream(new FileInputStream(args.valueOf(OPT_INSTALL)));
                         // Which applet
                         final AID applet;
@@ -414,7 +414,7 @@ public class Main extends CommandLineInterface {
                         ObjectNode recipe = RecipeGenerator.makeInstallRecipe(lfdbh, applet, instance, params);
                         FidesmoCard.deliverRecipe(bibo, fidesmoCard, authenticatedClient, formHandler, getAppId(), recipe);
                     } else if (args.has(OPT_UNINSTALL)) {
-                        FidesmoCard fidesmoCard = ensureBatched(bibo, client, requireDevice(fidesmoMetadata),uid);
+                        FidesmoCard fidesmoCard = ensureBatched(bibo, client, requireDevice(fidesmoMetadata));
                         String s = args.valueOf(OPT_UNINSTALL);
                         Path p = Paths.get(s);
 
@@ -434,7 +434,7 @@ public class Main extends CommandLineInterface {
 
                     // Can be chained
                     if (args.has(OPT_STORE_DATA)) {
-                        FidesmoCard fidesmoCard = ensureBatched(bibo, client, requireDevice(fidesmoMetadata),uid);
+                        FidesmoCard fidesmoCard = ensureBatched(bibo, client, requireDevice(fidesmoMetadata));
                         List<byte[]> blobs = args.valuesOf(OPT_STORE_DATA).stream().map(HexBytes::value).collect(Collectors.toList());
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET));
                         ObjectNode recipe = RecipeGenerator.makeStoreDataRecipe(applet, blobs);
@@ -443,7 +443,7 @@ public class Main extends CommandLineInterface {
 
                     // Can be chained
                     if (args.has(OPT_SECURE_APDU)) {
-                        FidesmoCard fidesmoCard = ensureBatched(bibo, client, requireDevice(fidesmoMetadata),uid);
+                        FidesmoCard fidesmoCard = ensureBatched(bibo, client, requireDevice(fidesmoMetadata));
                         List<byte[]> apdus = args.valuesOf(OPT_SECURE_APDU).stream().map(HexBytes::value).collect(Collectors.toList());
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET));
                         ObjectNode recipe = RecipeGenerator.makeSecureTransceiveRecipe(applet, apdus);
@@ -579,9 +579,9 @@ public class Main extends CommandLineInterface {
         return Optional.ofNullable(detect.get("batchingUrl")).map(n -> DeliveryUrl.parse(n.asText()));
     }
 
-    private static FidesmoCard ensureBatched(APDUBIBO bibo, FidesmoApiClient client, FidesmoCard device, Optional<byte[]> uid) throws URISyntaxException, IOException {
+    private static FidesmoCard ensureBatched(APDUBIBO bibo, FidesmoApiClient client, FidesmoCard device) throws URISyntaxException, IOException {
         if (!device.isBatched()) {
-            Optional<DeliveryUrl> deliveryOpt = getBatchingUrl(client, device.getCPLC(), uid);
+            Optional<DeliveryUrl> deliveryOpt = getBatchingUrl(client, device.getCPLC(), device.getUID());
             if (deliveryOpt.isPresent()) {
                 DeliveryUrl delivery = deliveryOpt.get();
                 System.out.println("Device is not batched. Completing batching.");
