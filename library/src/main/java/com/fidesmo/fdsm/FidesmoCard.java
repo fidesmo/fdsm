@@ -278,7 +278,7 @@ public class FidesmoCard {
             // Try to identify device on the server side using CPLC data
             try {
                 URI uri = uid
-                        .map(value -> client.getURI(FidesmoApiClient.DEVICE_IDENTIFY_WITH_UID_URL, HexUtils.bin2hex(cplc), value))
+                        .map(value -> client.getURI(FidesmoApiClient.DEVICE_IDENTIFY_WITH_UID_URL, HexUtils.bin2hex(cplc), HexUtils.bin2hex(value)))
                         .orElse(client.getURI(FidesmoApiClient.DEVICE_IDENTIFY_URL, HexUtils.bin2hex(cplc)));
                 JsonNode detect = client.rpc(uri);
                 

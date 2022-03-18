@@ -303,17 +303,10 @@ public class Main extends CommandLineInterface {
                             int platformVersion = capabilities.get("platformVersion").asInt();
                             String platform = Optional.ofNullable(capabilities.get("osTypeVersionName")).map(JsonNode::asText).orElse("unknown");
                             if (verbose)
-                                System.out.format("IIN: %s%n", HexUtils.bin2hex(iin));                            
+                                System.out.format("IIN: %s%n", HexUtils.bin2hex(iin));
                             System.out.format("OS type: %s (platform v%d)%n", platform, platformVersion);
 
-                            if (!fidesmoCard.isBatched()) {                                
-                                String batchingInstruction = getBatchingUrl(client, fidesmoCard.getCPLC(), fidesmoCard.getUID()).map(delivery -> {
-                                    String options = delivery.getAppId().map(appId -> String.format("%s/%s", appId, delivery.getService())).orElse(delivery.getService());
-                                    return String.format(". Use \"fdsm --run %s\" to complete batching procedure", options);                                    
-                                }).orElse(""); // batching procedure can't be completed
-                                
-                                System.out.println("Device is not batched" + batchingInstruction);
-                            }
+                            ensureBatched(bibo, client, fidesmoMetadata.get());
                         }
                     } else {
                         System.out.println("UID: " + uid.map(HexUtils::bin2hex).orElse("N/A"));
