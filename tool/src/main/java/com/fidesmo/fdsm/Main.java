@@ -573,7 +573,7 @@ public class Main extends CommandLineInterface {
     }
 
     private static FidesmoCard ensureBatched(APDUBIBO bibo, FidesmoApiClient client, FidesmoCard device) throws URISyntaxException, IOException {
-        if (!device.isBatched()) {
+        if (!device.isBatched() && !args.has(OPT_IGNORE_IMPLICIT_BATCHING)) {
             Optional<DeliveryUrl> deliveryOpt = getBatchingUrl(client, device.getCPLC(), device.getUID());
             if (deliveryOpt.isPresent()) {
                 DeliveryUrl delivery = deliveryOpt.get();
