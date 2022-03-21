@@ -303,17 +303,10 @@ public class Main extends CommandLineInterface {
                             int platformVersion = capabilities.get("platformVersion").asInt();
                             String platform = Optional.ofNullable(capabilities.get("osTypeVersionName")).map(JsonNode::asText).orElse("unknown");
                             if (verbose)
-                                System.out.format("IIN: %s%n", HexUtils.bin2hex(iin));                            
+                                System.out.format("IIN: %s%n", HexUtils.bin2hex(iin));
                             System.out.format("OS type: %s (platform v%d)%n", platform, platformVersion);
 
-                            if (!fidesmoCard.isBatched()) {                                
-                                String batchingInstruction = getBatchingUrl(client, fidesmoCard.getCPLC()).map(delivery -> {
-                                    String options = delivery.getAppId().map(appId -> String.format("%s/%s", appId, delivery.getService())).orElse(delivery.getService());
-                                    return String.format(". Use \"fdsm --run %s\" to complete batching procedure", options);                                    
-                                }).orElse(""); // batching procedure can't be completed
-                                
-                                System.out.println("Device is not batched" + batchingInstruction);
-                            }
+                            ensureBatched(bibo, client, fidesmoMetadata.get());
                         }
                     } else {
                         System.out.println("UID: " + uid.map(HexUtils::bin2hex).orElse("N/A"));
@@ -571,14 +564,17 @@ public class Main extends CommandLineInterface {
         return new FidesmoApiClient(apiurl, auth, apiTraceStream);
     }
 
-    private static Optional<DeliveryUrl> getBatchingUrl(FidesmoApiClient client, byte[] cplc) throws IOException {
-        JsonNode detect = client.rpc(client.getURI(FidesmoApiClient.DEVICE_IDENTIFY_URL, HexUtils.bin2hex(cplc)));
+    private static Optional<DeliveryUrl> getBatchingUrl(FidesmoApiClient client, byte[] cplc, Optional<byte[]> uid) throws IOException {
+        URI uri = uid
+                .map(value -> client.getURI(FidesmoApiClient.DEVICE_IDENTIFY_WITH_UID_URL, HexUtils.bin2hex(cplc), HexUtils.bin2hex(value)))
+                .orElse(client.getURI(FidesmoApiClient.DEVICE_IDENTIFY_URL, HexUtils.bin2hex(cplc)));
+        JsonNode detect = client.rpc(uri);
         return Optional.ofNullable(detect.get("batchingUrl")).map(n -> DeliveryUrl.parse(n.asText()));
     }
 
     private static FidesmoCard ensureBatched(APDUBIBO bibo, FidesmoApiClient client, FidesmoCard device) throws URISyntaxException, IOException {
-        if (!device.isBatched()) {
-            Optional<DeliveryUrl> deliveryOpt = getBatchingUrl(client, device.getCPLC());
+        if (!device.isBatched() && !args.has(OPT_IGNORE_IMPLICIT_BATCHING)) {
+            Optional<DeliveryUrl> deliveryOpt = getBatchingUrl(client, device.getCPLC(), device.getUID());
             if (deliveryOpt.isPresent()) {
                 DeliveryUrl delivery = deliveryOpt.get();
                 System.out.println("Device is not batched. Completing batching.");

@@ -10,6 +10,7 @@ public class FidesmoCardTest {
     @Test
     public void testOldStorageAppletSupport() {
         TestChannel channel = TestChannel.fromStrings(
+                "001122334455669000",
                 "6F108408A000000151000000A5049F6501FF9000",
                 "9F7F2A47906B644700E4D80300816500485399064800000000000000005758594E4E4E4E4E00000000000000009000",
                 "45073D5F8004132EDA9000",
@@ -25,6 +26,7 @@ public class FidesmoCardTest {
     @Test
     public void testCorrectParsingCardInfo() {
         TestChannel channel = TestChannel.fromStrings(
+                "001122334455669000",
                 "6F108408A000000151000000A5049F6501FF9000",
                 "9F7F2A47906B644700E4D80300816501062899064800000000000000005758594E4E4E4E4E00000000000000009000",
                 "45073D5F8004132EDA9000",

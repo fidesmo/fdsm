@@ -77,6 +77,7 @@ abstract class CommandLineInterface {
     final static protected OptionSpec<Integer> OPT_QA = parser.accepts("qa", "Run a QA support session").withOptionalArg().ofType(Integer.class).describedAs("QA number");
 
     final static protected OptionSpec<Integer> OPT_TIMEOUT = parser.accepts("timeout", "Timeout for services").withRequiredArg().ofType(Integer.class).describedAs("minutes");
+    final static protected OptionSpec<Void> OPT_IGNORE_IMPLICIT_BATCHING = parser.accepts("ignore-implicit-batching", "Require explicit batching if not a Fidesmo device");
 
     final static String ENV_FIDESMO_API_URL = "FIDESMO_API_URL";
     final static String ENV_FIDESMO_AUTH = "FIDESMO_AUTH";
@@ -90,6 +91,7 @@ abstract class CommandLineInterface {
     protected static PrintStream apiTraceStream;
     protected static boolean verbose = false;
     protected static boolean offline = false;
+    protected static boolean ignoreImplicitBatching = false;
 
     protected static OptionSet args = null;
 
@@ -139,6 +141,7 @@ abstract class CommandLineInterface {
         apduTraceStream = args.has(OPT_TRACE_APDU) ? System.out : null;
         verbose = args.has(OPT_VERBOSE);
         offline = args.has(OPT_OFFLINE);
+        ignoreImplicitBatching = args.has(OPT_IGNORE_IMPLICIT_BATCHING);
         return args;
     }
 
