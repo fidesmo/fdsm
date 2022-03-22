@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.fidesmo</groupId>
         <artifactId>fdsm-toolbox</artifactId>
-        <version>21.10.15-SNAPSHOT</version>
+        <version>22.03.22</version>
     </parent>
 
     <artifactId>fdsm-tool</artifactId>
@@ -26,7 +26,7 @@
         <dependency>
             <groupId>com.fidesmo</groupId>
             <artifactId>fdsm</artifactId>
-            <version>21.10.15-SNAPSHOT</version>
+            <version>22.03.22</version>
         </dependency>
         <!-- Card reader access -->
         <dependency>
