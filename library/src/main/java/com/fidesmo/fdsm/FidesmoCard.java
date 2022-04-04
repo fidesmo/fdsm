@@ -39,7 +39,9 @@ import pro.javacard.AID;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.*;
+import java.util.concurrent.RunnableFuture;
 
 // Represents a live, personalized Fidesmo card
 public class FidesmoCard {
@@ -425,5 +427,40 @@ public class FidesmoCard {
             }
         }
         return null;
+    }
+
+    private static Optional<DeliveryUrl> getBatchingUrl(FidesmoApiClient client, byte[] cplc, Optional<byte[]> uid) throws IOException {
+        URI uri = uid
+                .map(value -> client.getURI(FidesmoApiClient.DEVICE_IDENTIFY_WITH_UID_URL, HexUtils.bin2hex(cplc), HexUtils.bin2hex(value)))
+                .orElse(client.getURI(FidesmoApiClient.DEVICE_IDENTIFY_URL, HexUtils.bin2hex(cplc)));
+        JsonNode detect = client.rpc(uri);
+        return Optional.ofNullable(detect.get("batchingUrl")).map(n -> DeliveryUrl.parse(n.asText()));
+    }
+
+    public void ensureBatched(APDUBIBO bibo, FidesmoApiClient client, Optional<Integer> timeoutMinutes, boolean ignoreImplicitBatching, FormHandler formHandler) throws IOException, URISyntaxException {
+        if (!this.isBatched() && !ignoreImplicitBatching) {
+            Optional<DeliveryUrl> deliveryOpt = getBatchingUrl(client, this.getCPLC(), this.getUID());
+            if (deliveryOpt.isPresent()) {
+                DeliveryUrl delivery = deliveryOpt.get();
+                System.out.println("Device is not batched. Completing batching.");
+                if (delivery.isWebSocket()) {
+                    if (!WsClient.execute(new URI(delivery.getService()), bibo, null).join().isSuccess()) {
+                        throw new RuntimeException("Failed to batch the device");
+                    }
+                } else {
+                    final ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(
+                            () -> bibo, this, client, delivery.getAppId().get(), delivery.getService(), formHandler
+                    );
+
+                    timeoutMinutes.ifPresent(cardSession::setTimeoutMinutes);
+
+                    RunnableFuture<ServiceDeliverySession.DeliveryResult> serviceFuture = new CancellationWaitingFuture<>(cardSession);
+
+                    if (!ServiceDeliverySession.deliverService(serviceFuture).isSuccess()) {
+                        throw new RuntimeException("Failed to batch the device");
+                    }
+                }
+            }
+        }
     }
 }

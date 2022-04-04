@@ -280,7 +280,7 @@ public class Main extends CommandLineInterface {
                         cardSession.setTimeoutMinutes(args.valueOf(OPT_TIMEOUT));
                     CancellationWaitingFuture<ServiceDeliverySession.DeliveryResult> deliveryTask = new CancellationWaitingFuture<>(cardSession);
 
-                    if (!deliverService(deliveryTask).isSuccess()) {
+                    if (!ServiceDeliverySession.deliverService(deliveryTask).isSuccess()) {
                         fail("Failed to run service");
                     } else {
                         success();
@@ -306,7 +306,7 @@ public class Main extends CommandLineInterface {
                                 System.out.format("IIN: %s%n", HexUtils.bin2hex(iin));
                             System.out.format("OS type: %s (platform v%d)%n", platform, platformVersion);
 
-                            ensureBatched(bibo, client, fidesmoMetadata.get());
+                            fidesmoMetadata.get().ensureBatched(bibo, client, Optional.ofNullable(args.valueOf(OPT_TIMEOUT)),args.has(OPT_IGNORE_IMPLICIT_BATCHING),getCommandLineFormHandler());
                         }
                     } else {
                         System.out.println("UID: " + uid.map(HexUtils::bin2hex).orElse("N/A"));
@@ -316,7 +316,7 @@ public class Main extends CommandLineInterface {
 
                 if (args.has(OPT_RUN)) {
                     if (fidesmoMetadata.isPresent()) {
-                        ensureBatched(bibo, client, fidesmoMetadata.get());
+                        fidesmoMetadata.get().ensureBatched(bibo, client, Optional.ofNullable(args.valueOf(OPT_TIMEOUT)),args.has(OPT_IGNORE_IMPLICIT_BATCHING),getCommandLineFormHandler());
                     }
 
                     DeliveryUrl delivery = DeliveryUrl.parse(args.valueOf(OPT_RUN));
@@ -344,7 +344,7 @@ public class Main extends CommandLineInterface {
                             cardSession.setTimeoutMinutes(args.valueOf(OPT_TIMEOUT));
 
                         RunnableFuture<ServiceDeliverySession.DeliveryResult> serviceFuture = new CancellationWaitingFuture<>(cardSession);
-                        ServiceDeliverySession.DeliveryResult result = deliverService(serviceFuture);
+                        ServiceDeliverySession.DeliveryResult result = ServiceDeliverySession.deliverService(serviceFuture);
 
                         if (!result.isSuccess()) {
                             fail("Failed to run service");
@@ -356,7 +356,8 @@ public class Main extends CommandLineInterface {
                 }
                 
                 if (args.has(OPT_CARD_APPS)) {
-                    FidesmoCard fidesmoCard = ensureBatched(bibo, client, requireDevice(fidesmoMetadata));
+                    FidesmoCard fidesmoCard = requireDevice(fidesmoMetadata);
+                    fidesmoCard.ensureBatched(bibo, client, Optional.ofNullable(args.valueOf(OPT_TIMEOUT)),args.has(OPT_IGNORE_IMPLICIT_BATCHING),getCommandLineFormHandler());
                     List<byte[]> apps = FidesmoCard.listApps(bibo);
                     if (apps.size() > 0) {
                         printApps(queryApps(client, apps, verbose), System.out, verbose);
@@ -368,7 +369,9 @@ public class Main extends CommandLineInterface {
                     FormHandler formHandler = getCommandLineFormHandler();
 
                     if (args.has(OPT_INSTALL)) {
-                        FidesmoCard fidesmoCard = ensureBatched(bibo, client, requireDevice(fidesmoMetadata));
+                        FidesmoCard fidesmoCard = requireDevice(fidesmoMetadata);
+                        fidesmoCard.ensureBatched(bibo, client, Optional.ofNullable(args.valueOf(OPT_TIMEOUT)),args.has(OPT_IGNORE_IMPLICIT_BATCHING),getCommandLineFormHandler());
+
                         CAPFile cap = CAPFile.fromStream(new FileInputStream(args.valueOf(OPT_INSTALL)));
                         // Which applet
                         final AID applet;
@@ -407,7 +410,8 @@ public class Main extends CommandLineInterface {
                         ObjectNode recipe = RecipeGenerator.makeInstallRecipe(lfdbh, applet, instance, params);
                         FidesmoCard.deliverRecipe(bibo, fidesmoCard, authenticatedClient, formHandler, getAppId(), recipe);
                     } else if (args.has(OPT_UNINSTALL)) {
-                        FidesmoCard fidesmoCard = ensureBatched(bibo, client, requireDevice(fidesmoMetadata));
+                        FidesmoCard fidesmoCard = requireDevice(fidesmoMetadata);
+                        fidesmoCard.ensureBatched(bibo, client, Optional.ofNullable(args.valueOf(OPT_TIMEOUT)),args.has(OPT_IGNORE_IMPLICIT_BATCHING),getCommandLineFormHandler());
                         String s = args.valueOf(OPT_UNINSTALL);
                         Path p = Paths.get(s);
 
@@ -427,7 +431,8 @@ public class Main extends CommandLineInterface {
 
                     // Can be chained
                     if (args.has(OPT_STORE_DATA)) {
-                        FidesmoCard fidesmoCard = ensureBatched(bibo, client, requireDevice(fidesmoMetadata));
+                        FidesmoCard fidesmoCard = requireDevice(fidesmoMetadata);
+                        fidesmoCard.ensureBatched(bibo, client, Optional.ofNullable(args.valueOf(OPT_TIMEOUT)),args.has(OPT_IGNORE_IMPLICIT_BATCHING),getCommandLineFormHandler());
                         List<byte[]> blobs = args.valuesOf(OPT_STORE_DATA).stream().map(HexBytes::value).collect(Collectors.toList());
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET));
                         ObjectNode recipe = RecipeGenerator.makeStoreDataRecipe(applet, blobs);
@@ -436,7 +441,8 @@ public class Main extends CommandLineInterface {
 
                     // Can be chained
                     if (args.has(OPT_SECURE_APDU)) {
-                        FidesmoCard fidesmoCard = ensureBatched(bibo, client, requireDevice(fidesmoMetadata));
+                        FidesmoCard fidesmoCard = requireDevice(fidesmoMetadata);
+                        fidesmoCard.ensureBatched(bibo, client, Optional.ofNullable(args.valueOf(OPT_TIMEOUT)),args.has(OPT_IGNORE_IMPLICIT_BATCHING),getCommandLineFormHandler());
                         List<byte[]> apdus = args.valuesOf(OPT_SECURE_APDU).stream().map(HexBytes::value).collect(Collectors.toList());
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET));
                         ObjectNode recipe = RecipeGenerator.makeSecureTransceiveRecipe(applet, apdus);
@@ -470,44 +476,6 @@ public class Main extends CommandLineInterface {
             if (verbose)
                 e.printStackTrace();
             fail("Unexpected error: " + e.getMessage());
-        }
-    }
-
-    private static ServiceDeliverySession.DeliveryResult deliverService(final RunnableFuture<ServiceDeliverySession.DeliveryResult> serviceDelivery) {
-        Thread cleanup = new Thread(() -> {
-            System.err.println("\nCtrl-C received, cancelling delivery");
-            serviceDelivery.cancel(true);
-            try {
-                // leave some time to finish HTTP
-                serviceDelivery.get(5, TimeUnit.SECONDS);
-            } catch (InterruptedException | ExecutionException | TimeoutException | CancellationException ignored) {
-            }
-        });
-
-        Runtime.getRuntime().addShutdownHook(cleanup);
-
-        boolean ran = false;
-        try {
-            // Run in current thread
-            serviceDelivery.run();
-            ServiceDeliverySession.DeliveryResult result = serviceDelivery.get();
-            ran = true;
-            return result;
-        } catch (ExecutionException e) {
-            ran = true;
-            if (e.getCause() instanceof FDSMException)
-                throw (FDSMException) e.getCause();
-            System.err.println("Failed to run service: " + e.getCause().getMessage());
-            throw new RuntimeException("Failed to run service: " + e.getCause().getMessage(), e.getCause());
-        } catch (InterruptedException e) {
-            // If main thread gets interrupted ....
-            throw new CancellationException("Interrupted");
-        } finally {
-            try {
-                if (ran) Runtime.getRuntime().removeShutdownHook(cleanup);
-            } catch (IllegalStateException ignored) {
-                // It's fine to fail to remove the hook if shutdown is already in progress
-            }
         }
     }
 
@@ -562,44 +530,6 @@ public class Main extends CommandLineInterface {
 
     private static FidesmoApiClient getClient() {
         return new FidesmoApiClient(apiurl, auth, apiTraceStream);
-    }
-
-    private static Optional<DeliveryUrl> getBatchingUrl(FidesmoApiClient client, byte[] cplc, Optional<byte[]> uid) throws IOException {
-        URI uri = uid
-                .map(value -> client.getURI(FidesmoApiClient.DEVICE_IDENTIFY_WITH_UID_URL, HexUtils.bin2hex(cplc), HexUtils.bin2hex(value)))
-                .orElse(client.getURI(FidesmoApiClient.DEVICE_IDENTIFY_URL, HexUtils.bin2hex(cplc)));
-        JsonNode detect = client.rpc(uri);
-        return Optional.ofNullable(detect.get("batchingUrl")).map(n -> DeliveryUrl.parse(n.asText()));
-    }
-
-    private static FidesmoCard ensureBatched(APDUBIBO bibo, FidesmoApiClient client, FidesmoCard device) throws URISyntaxException, IOException {
-        if (!device.isBatched() && !args.has(OPT_IGNORE_IMPLICIT_BATCHING)) {
-            Optional<DeliveryUrl> deliveryOpt = getBatchingUrl(client, device.getCPLC(), device.getUID());
-            if (deliveryOpt.isPresent()) {
-                DeliveryUrl delivery = deliveryOpt.get();
-                System.out.println("Device is not batched. Completing batching.");
-                if (delivery.isWebSocket()) {
-                    if (!WsClient.execute(new URI(delivery.getService()), bibo, auth).join().isSuccess()) {
-                        fail("Failed to batch the device");
-                    }
-                } else {                    
-                    final ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(
-                        () -> bibo, device, client, delivery.getAppId().get(), delivery.getService(), getCommandLineFormHandler()
-                    );
-
-                    if (args.has(OPT_TIMEOUT))
-                        cardSession.setTimeoutMinutes(args.valueOf(OPT_TIMEOUT));
-
-                    RunnableFuture<ServiceDeliverySession.DeliveryResult> serviceFuture = new CancellationWaitingFuture<>(cardSession);
-
-                    if (!deliverService(serviceFuture).isSuccess()) {
-                       fail("Failed to batch the device");
-                    }
-                }
-            }
-        }
-
-        return device;
     }
 
     private static FidesmoCard requireDevice(Optional<FidesmoCard> device) {
