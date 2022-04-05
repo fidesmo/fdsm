@@ -66,6 +66,9 @@ public class Main extends CommandLineInterface {
         System.setProperty("org.slf4j.simpleLogger.showShortLogName", "true");
         System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", System.getenv().getOrDefault(ENV_FIDESMO_DEBUG, "error"));
 
+        Optional<Integer> optTimeout = Optional.ofNullable(args.valueOf(OPT_TIMEOUT));
+        boolean ignoreImplicitBatching = args.has(OPT_IGNORE_IMPLICIT_BATCHING);
+
         try {
             // Inspect arguments
             parseArguments(argv);
@@ -306,7 +309,7 @@ public class Main extends CommandLineInterface {
                                 System.out.format("IIN: %s%n", HexUtils.bin2hex(iin));
                             System.out.format("OS type: %s (platform v%d)%n", platform, platformVersion);
 
-                            fidesmoMetadata.get().ensureBatched(bibo, client, Optional.ofNullable(args.valueOf(OPT_TIMEOUT)),args.has(OPT_IGNORE_IMPLICIT_BATCHING),getCommandLineFormHandler());
+                            fidesmoMetadata.get().ensureBatched(bibo, client, optTimeout, ignoreImplicitBatching, getCommandLineFormHandler());
                         }
                     } else {
                         System.out.println("UID: " + uid.map(HexUtils::bin2hex).orElse("N/A"));
@@ -316,7 +319,7 @@ public class Main extends CommandLineInterface {
 
                 if (args.has(OPT_RUN)) {
                     if (fidesmoMetadata.isPresent()) {
-                        fidesmoMetadata.get().ensureBatched(bibo, client, Optional.ofNullable(args.valueOf(OPT_TIMEOUT)),args.has(OPT_IGNORE_IMPLICIT_BATCHING),getCommandLineFormHandler());
+                        fidesmoMetadata.get().ensureBatched(bibo, client, optTimeout, ignoreImplicitBatching, getCommandLineFormHandler());
                     }
 
                     DeliveryUrl delivery = DeliveryUrl.parse(args.valueOf(OPT_RUN));
@@ -357,7 +360,7 @@ public class Main extends CommandLineInterface {
                 
                 if (args.has(OPT_CARD_APPS)) {
                     FidesmoCard fidesmoCard = requireDevice(fidesmoMetadata);
-                    fidesmoCard.ensureBatched(bibo, client, Optional.ofNullable(args.valueOf(OPT_TIMEOUT)),args.has(OPT_IGNORE_IMPLICIT_BATCHING),getCommandLineFormHandler());
+                    fidesmoCard.ensureBatched(bibo, client, optTimeout, ignoreImplicitBatching, getCommandLineFormHandler());
                     List<byte[]> apps = FidesmoCard.listApps(bibo);
                     if (apps.size() > 0) {
                         printApps(queryApps(client, apps, verbose), System.out, verbose);
@@ -370,7 +373,7 @@ public class Main extends CommandLineInterface {
 
                     if (args.has(OPT_INSTALL)) {
                         FidesmoCard fidesmoCard = requireDevice(fidesmoMetadata);
-                        fidesmoCard.ensureBatched(bibo, client, Optional.ofNullable(args.valueOf(OPT_TIMEOUT)),args.has(OPT_IGNORE_IMPLICIT_BATCHING),getCommandLineFormHandler());
+                        fidesmoCard.ensureBatched(bibo, client, optTimeout, ignoreImplicitBatching, getCommandLineFormHandler());
 
                         CAPFile cap = CAPFile.fromStream(new FileInputStream(args.valueOf(OPT_INSTALL)));
                         // Which applet
@@ -411,7 +414,7 @@ public class Main extends CommandLineInterface {
                         FidesmoCard.deliverRecipe(bibo, fidesmoCard, authenticatedClient, formHandler, getAppId(), recipe);
                     } else if (args.has(OPT_UNINSTALL)) {
                         FidesmoCard fidesmoCard = requireDevice(fidesmoMetadata);
-                        fidesmoCard.ensureBatched(bibo, client, Optional.ofNullable(args.valueOf(OPT_TIMEOUT)),args.has(OPT_IGNORE_IMPLICIT_BATCHING),getCommandLineFormHandler());
+                        fidesmoCard.ensureBatched(bibo, client, optTimeout, ignoreImplicitBatching, getCommandLineFormHandler());
                         String s = args.valueOf(OPT_UNINSTALL);
                         Path p = Paths.get(s);
 
@@ -432,7 +435,7 @@ public class Main extends CommandLineInterface {
                     // Can be chained
                     if (args.has(OPT_STORE_DATA)) {
                         FidesmoCard fidesmoCard = requireDevice(fidesmoMetadata);
-                        fidesmoCard.ensureBatched(bibo, client, Optional.ofNullable(args.valueOf(OPT_TIMEOUT)),args.has(OPT_IGNORE_IMPLICIT_BATCHING),getCommandLineFormHandler());
+                        fidesmoCard.ensureBatched(bibo, client, optTimeout, ignoreImplicitBatching, getCommandLineFormHandler());
                         List<byte[]> blobs = args.valuesOf(OPT_STORE_DATA).stream().map(HexBytes::value).collect(Collectors.toList());
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET));
                         ObjectNode recipe = RecipeGenerator.makeStoreDataRecipe(applet, blobs);
@@ -442,7 +445,7 @@ public class Main extends CommandLineInterface {
                     // Can be chained
                     if (args.has(OPT_SECURE_APDU)) {
                         FidesmoCard fidesmoCard = requireDevice(fidesmoMetadata);
-                        fidesmoCard.ensureBatched(bibo, client, Optional.ofNullable(args.valueOf(OPT_TIMEOUT)),args.has(OPT_IGNORE_IMPLICIT_BATCHING),getCommandLineFormHandler());
+                        fidesmoCard.ensureBatched(bibo, client, optTimeout, ignoreImplicitBatching, getCommandLineFormHandler());
                         List<byte[]> apdus = args.valuesOf(OPT_SECURE_APDU).stream().map(HexBytes::value).collect(Collectors.toList());
                         AID applet = AID.fromString(args.valueOf(OPT_APPLET));
                         ObjectNode recipe = RecipeGenerator.makeSecureTransceiveRecipe(applet, apdus);
