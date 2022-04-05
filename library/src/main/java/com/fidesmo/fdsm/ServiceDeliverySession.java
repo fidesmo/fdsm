@@ -52,9 +52,7 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.MGF1ParameterSpec;
 import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.function.Supplier;
 
 // Delivers a service to a card
@@ -526,6 +524,44 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
                     ", message='" + message + '\'' +
                     ", scriptStatus=" + scriptStatus +
                     '}';
+        }
+    }
+
+    public static ServiceDeliverySession.DeliveryResult deliverService(final RunnableFuture<DeliveryResult> serviceDelivery) {
+        Thread cleanup = new Thread(() -> {
+            System.err.println("\nCtrl-C received, cancelling delivery");
+            serviceDelivery.cancel(true);
+            try {
+                // leave some time to finish HTTP
+                serviceDelivery.get(5, TimeUnit.SECONDS);
+            } catch (InterruptedException | ExecutionException | TimeoutException | CancellationException ignored) {
+            }
+        });
+
+        Runtime.getRuntime().addShutdownHook(cleanup);
+
+        boolean ran = false;
+        try {
+            // Run in current thread
+            serviceDelivery.run();
+            ServiceDeliverySession.DeliveryResult result = serviceDelivery.get();
+            ran = true;
+            return result;
+        } catch (ExecutionException e) {
+            ran = true;
+            if (e.getCause() instanceof FDSMException)
+                throw (FDSMException) e.getCause();
+            System.err.println("Failed to run service: " + e.getCause().getMessage());
+            throw new RuntimeException("Failed to run service: " + e.getCause().getMessage(), e.getCause());
+        } catch (InterruptedException e) {
+            // If main thread gets interrupted ....
+            throw new CancellationException("Interrupted");
+        } finally {
+            try {
+                if (ran) Runtime.getRuntime().removeShutdownHook(cleanup);
+            } catch (IllegalStateException ignored) {
+                // It's fine to fail to remove the hook if shutdown is already in progress
+            }
         }
     }
 }
