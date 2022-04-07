@@ -66,14 +66,17 @@ public class Main extends CommandLineInterface {
         System.setProperty("org.slf4j.simpleLogger.showShortLogName", "true");
         System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", System.getenv().getOrDefault(ENV_FIDESMO_DEBUG, "error"));
 
-        Optional<Integer> optTimeout = Optional.ofNullable(args.valueOf(OPT_TIMEOUT));
-        boolean ignoreImplicitBatching = args.has(OPT_IGNORE_IMPLICIT_BATCHING);
+        Optional<Integer> optTimeout;
+        boolean ignoreImplicitBatching;
 
         try {
             // Inspect arguments
             parseArguments(argv);
             // Check environment
             inspectEnvironment(args);
+
+            optTimeout = Optional.ofNullable(args.valueOf(OPT_TIMEOUT));
+            ignoreImplicitBatching = args.has(OPT_IGNORE_IMPLICIT_BATCHING);
 
             // Show useful stuff
             if (verbose && System.getenv(ENV_FIDESMO_DEBUG) == null)
