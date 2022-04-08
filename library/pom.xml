@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.fidesmo</groupId>
         <artifactId>fdsm-toolbox</artifactId>
-        <version>22.04.8-SNAPSHOT</version>
+        <version>22.04.08</version>
     </parent>
 
     <artifactId>fdsm</artifactId>
