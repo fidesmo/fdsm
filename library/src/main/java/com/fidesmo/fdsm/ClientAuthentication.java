@@ -62,7 +62,7 @@ public class ClientAuthentication {
 
     public static ClientAuthentication forUserPasswordOrToken(String auth) {
         if (auth.contains(":")) {
-            String[] creds = auth.split(":");
+            String[] creds = auth.split(":",2);
             if (creds.length != 2) {
                 throw new IllegalArgumentException("Invalid username and password format");
             }
