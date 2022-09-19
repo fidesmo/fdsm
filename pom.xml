@@ -138,6 +138,10 @@
                                 <requireMavenVersion>
                                     <version>3.6</version>
                                 </requireMavenVersion>
+                                <requireJavaVersion>
+                                    <version>11</version>
+                                    <message>ATTENTION: please use JDK11 or later</message>
+                                </requireJavaVersion>
                             </rules>
                         </configuration>
                     </execution>
