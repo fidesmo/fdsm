@@ -20,4 +20,5 @@ jobs:
         uses: actions/setup-java@v3.9.0
         with:
           java-version: ${{ matrix.java }}
+          distribution: temurin
       - run: ./mvnw -B verify

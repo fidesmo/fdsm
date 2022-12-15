@@ -150,6 +150,7 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
                             <finalName>fdsm</finalName>
                             <transformers>
                                 <transformer
