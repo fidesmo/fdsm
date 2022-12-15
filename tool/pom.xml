@@ -32,13 +32,13 @@
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
             <artifactId>apdu4j-pcsc</artifactId>
-            <version>21.04.01</version>
+            <version>21.05.06</version>
         </dependency>
         <!-- Simple logging for the CLI -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
-            <version>1.7.36</version>
+            <version>2.0.6</version>
             <optional>true</optional>
         </dependency>
     </dependencies>
@@ -51,7 +51,7 @@
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>build-helper-maven-plugin</artifactId>
-                        <version>3.2.0</version>
+                        <version>3.3.0</version>
                         <executions>
                             <execution>
                                 <id>windows-file-version</id>
@@ -65,7 +65,7 @@
                     <plugin>
                         <groupId>com.akathist.maven.plugins.launch4j</groupId>
                         <artifactId>launch4j-maven-plugin</artifactId>
-                        <version>2.0.1</version>
+                        <version>2.2.0</version>
                         <executions>
                             <execution>
                                 <id>fdsm-exe</id>
@@ -117,7 +117,7 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
-                <version>1.6.0</version>
+                <version>3.1.0</version>
                 <executions>
                     <execution>
                         <id>git-version</id>
@@ -142,7 +142,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.2.1</version>
+                <version>3.4.1</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -165,6 +165,12 @@
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>
                                         <exclude>META-INF/maven/**</exclude>
+                                        <exclude>META-INF/MANIFEST.MF</exclude>
+                                        <exclude>META-INF/LICENSE</exclude>
+                                        <exclude>META-INF/LICENSE.txt</exclude>
+                                        <exclude>META-INF/NOTICE</exclude>
+                                        <exclude>META-INF/NOTICE.txt</exclude>
+                                        <exclude>META-INF/DEPENDENCIES</exclude>
                                         <exclude>**/module-info.class</exclude>
                                     </excludes>
                                 </filter>
