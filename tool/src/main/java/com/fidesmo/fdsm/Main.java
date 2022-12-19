@@ -272,7 +272,7 @@ public class Main extends CommandLineInterface {
 
                 // Allows to run with any card
                 if (args.has(OPT_QA)) {
-                    String number = Integer.toString(new Random().nextInt(900000) + 100000).substring(0, 6);
+                    String number = Integer.toString(ThreadLocalRandom.current().nextInt(900000) + 100000).substring(0, 6);
                     if (args.valueOf(OPT_QA) != null) {
                         number = args.valueOf(OPT_QA).toString();
                     } else {

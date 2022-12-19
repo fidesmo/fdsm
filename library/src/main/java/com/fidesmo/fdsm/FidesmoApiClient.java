@@ -93,7 +93,7 @@ public class FidesmoApiClient {
         this(APIv2, null, null);
     }
 
-    public FidesmoApiClient(String url, ClientAuthentication authentication, PrintStream apidump) {
+    public FidesmoApiClient(String url, ClientAuthentication authentication, OutputStream apidump) {
         this.apiurl = url;
         this.authentication = authentication;
 
@@ -102,10 +102,10 @@ public class FidesmoApiClient {
                 .useSystemProperties()
                 .setUserAgent("fdsm/" + getVersion())
                 .build();
-        this.apidump = apidump;
+        this.apidump = apidump == null ? null : new PrintStream(apidump, true, StandardCharsets.UTF_8);
     }
 
-    public FidesmoApiClient(ClientAuthentication authentication, PrintStream apidump) {
+    public FidesmoApiClient(ClientAuthentication authentication, OutputStream apidump) {
         this(APIv2, authentication, apidump);
     }
 
@@ -205,7 +205,8 @@ public class FidesmoApiClient {
         if (n == null)
             return "";
         if (n.size() > 0) {
-            Map<String, Object> langs = mapper.convertValue(n, new TypeReference<Map<String, Object>>() {});
+            Map<String, Object> langs = mapper.convertValue(n, new TypeReference<Map<String, Object>>() {
+            });
             Map.Entry<String, Object> first = langs.entrySet().iterator().next();
             return langs.getOrDefault(Locale.getDefault().getLanguage(), langs.getOrDefault("en", first.getValue())).toString();
         } else {

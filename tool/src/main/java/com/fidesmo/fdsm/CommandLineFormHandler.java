@@ -33,7 +33,7 @@ public class CommandLineFormHandler implements FormHandler {
     private final Map<String, String> predefinedFields;
 
     public CommandLineFormHandler(Map<String, String> predefinedFields) {
-        this.predefinedFields = predefinedFields;
+        this.predefinedFields = Collections.unmodifiableMap(predefinedFields);
     }
 
     @Override
