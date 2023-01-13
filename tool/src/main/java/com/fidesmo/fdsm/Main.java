@@ -268,7 +268,7 @@ public class Main extends CommandLineInterface {
                 Card card = terminal.connect("*");
                 Optional<byte[]> uid = getUID(card.getBasicChannel());
                 APDUBIBO bibo = new APDUBIBO(CardBIBO.wrap(card));
-                Optional<FidesmoCard> fidesmoMetadata = args.has(OPT_OFFLINE) ? FidesmoCard.detectOffline(bibo) : FidesmoCard.detectOnline(bibo, client);
+                Optional<FidesmoCard> fidesmoMetadata = (args.has(OPT_OFFLINE) || args.has(OPT_IGNORE_IMPLICIT_BATCHING)) ? FidesmoCard.detectOffline(bibo) : FidesmoCard.detectOnline(bibo, client);
 
                 // Allows to run with any card
                 if (args.has(OPT_QA)) {
