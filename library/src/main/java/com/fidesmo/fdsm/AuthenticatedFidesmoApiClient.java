@@ -22,20 +22,14 @@
 package com.fidesmo.fdsm;
 
 import apdu4j.core.HexUtils;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.ByteArrayEntity;
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.StringEntity;
 import pro.javacard.AID;
 import pro.javacard.CAPFile;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -48,17 +42,6 @@ public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
 
     public static AuthenticatedFidesmoApiClient getInstance(String url, ClientAuthentication auth, PrintStream apidump) throws IllegalArgumentException {
         return new AuthenticatedFidesmoApiClient(url, auth, apidump);
-    }
-
-    public void put(URI uri, ObjectNode json) throws IOException {
-        HttpPut put = new HttpPut(uri);
-        put.setEntity(new StringEntity(RecipeGenerator.mapper.writeValueAsString(json), ContentType.APPLICATION_JSON));
-        transmit(put).close();
-    }
-
-    public void delete(URI uri) throws IOException {
-        HttpDelete delete = new HttpDelete(uri);
-        transmit(delete).close();
     }
 
     // Upload a CAP file

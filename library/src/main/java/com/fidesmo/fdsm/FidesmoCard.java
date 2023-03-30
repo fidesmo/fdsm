@@ -311,9 +311,8 @@ public class FidesmoCard {
             final String uuid = UUID.randomUUID().toString();
 
             URI uri = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, appId, uuid);
-            client.put(uri, recipe);
+            client.put(uri, recipe).close();
 
-            logger.info("Recipe uploaded: {}", recipe);
             ServiceDeliverySession session = ServiceDeliverySession.getInstance(() -> bibo, card, client, appId, uuid, formHandler);
 
             // Remove also when ctrl-c is pressed
