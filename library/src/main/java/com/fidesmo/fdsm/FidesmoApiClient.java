@@ -26,16 +26,21 @@ import com.fasterxml.jackson.core.util.DefaultIndenter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.HttpResponseException;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.message.BasicHeader;
@@ -109,12 +114,48 @@ public class FidesmoApiClient {
         this(APIv2, authentication, apidump);
     }
 
-    public CloseableHttpResponse transmit(HttpRequestBase request) throws IOException {
-        // XXX: GET/POST get handled in rpc(), this is only for PUT and DELETE
-        if (apidump != null && !(request.getMethod().equals("GET") || request.getMethod().equals("POST"))) {
-            apidump.println(request.getMethod() + ": " + request.getURI());
+    public CloseableHttpResponse get(URI uri) throws IOException {
+        HttpGet get = new HttpGet(uri);
+        if (apidump != null) {
+            apidump.println(get.getMethod() + ": " + get.getURI());
+        }
+        
+        return transmit(get);
+    }
+
+    public CloseableHttpResponse put(URI uri, ObjectNode json) throws IOException {
+        HttpPut put = new HttpPut(uri);
+        put.setEntity(new StringEntity(RecipeGenerator.mapper.writeValueAsString(json), ContentType.APPLICATION_JSON));
+        
+        if (apidump != null) {
+            apidump.println(put.getMethod() + ": " + put.getURI());  
+            apidump.println(mapper.writer(printer).writeValueAsString(json));
         }
 
+        return transmit(put);
+    }
+
+    public CloseableHttpResponse post(URI uri, ObjectNode json) throws IOException {
+        HttpPost post = new HttpPost(uri);
+        post.setEntity(new StringEntity(RecipeGenerator.mapper.writeValueAsString(json), ContentType.APPLICATION_JSON));
+        
+        if (apidump != null) {
+            apidump.println(post.getMethod() + ": " + post.getURI());  
+            apidump.println(mapper.writer(printer).writeValueAsString(json));            
+        }
+
+        return transmit(post);
+    }
+
+    public void delete(URI uri) throws IOException {
+        HttpDelete delete = new HttpDelete(uri);
+        if (apidump != null) {
+            apidump.println(delete.getMethod() + ": " + delete.getURI());           
+        }
+        transmit(delete).close();
+    }
+
+    public CloseableHttpResponse transmit(HttpRequestBase request) throws IOException {
         if (authentication != null) {
             request.addHeader(new BasicHeader(HttpHeaders.AUTHORIZATION, authentication.toAuthenticationHeader()));
         }

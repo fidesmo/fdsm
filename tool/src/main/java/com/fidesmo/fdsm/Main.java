@@ -215,7 +215,7 @@ public class Main extends CommandLineInterface {
                         String name = FilenameUtils.getBaseName(f.getName());
                         ObjectNode recipe = RecipeGenerator.mapper.readTree(Files.readAllBytes(f.toPath())).deepCopy();
                         URI uri = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, getAppId(), name);
-                        client.put(uri, recipe);
+                        client.put(uri, recipe).close();
                     } else {
                         CAPFile cap = CAPFile.fromStream(new FileInputStream(args.valueOf(OPT_UPLOAD)));
                         client.upload(getAppId(), cap);
