@@ -136,15 +136,15 @@ public class FidesmoApiClient {
     }
 
     public CloseableHttpResponse post(URI uri, ObjectNode json) throws IOException {
-        HttpPost put = new HttpPost(uri);
-        put.setEntity(new StringEntity(RecipeGenerator.mapper.writeValueAsString(json), ContentType.APPLICATION_JSON));
+        HttpPost post = new HttpPost(uri);
+        post.setEntity(new StringEntity(RecipeGenerator.mapper.writeValueAsString(json), ContentType.APPLICATION_JSON));
         
         if (apidump != null) {
-            apidump.println(put.getMethod() + ": " + put.getURI());  
+            apidump.println(post.getMethod() + ": " + post.getURI());  
             apidump.println(mapper.writer(printer).writeValueAsString(json));            
         }
 
-        return transmit(put);
+        return transmit(post);
     }
 
     public void delete(URI uri) throws IOException {
