@@ -82,7 +82,7 @@
                                         <mainClass>com.fidesmo.fdsm.Main</mainClass>
                                     </classPath>
                                     <jre>
-                                        <path>${env.JAVA_HOME}</path>
+                                        <path>%JAVA_HOME%;%PATH%</path>
                                         <minVersion>11.0</minVersion>
                                     </jre>
                                     <versionInfo>
