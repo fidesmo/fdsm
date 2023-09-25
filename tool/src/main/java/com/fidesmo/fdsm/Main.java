@@ -611,11 +611,14 @@ public class Main extends CommandLineInterface {
     }
 
     private static String getAppId() {
-        if (args.valueOf(OPT_APP_ID) == null) {
-            throw new IllegalArgumentException("Operation requires app-id parameter!");            
+        // Value is required, thus we can safely use valueOf
+        if (args.has(OPT_APP_ID)) {
+            return args.valueOf(OPT_APP_ID);
+        } else if (System.getenv(ENV_FIDESMO_APPID) != null) {
+            return System.getenv(ENV_FIDESMO_APPID);
         } else {
-            return args.valueOf(OPT_APP_ID).toString();
-        }        
+            throw new IllegalArgumentException("Operation requires --app-id or $FIDESMO_APPID");
+        }
     }
 
     private static class FidesmoService {

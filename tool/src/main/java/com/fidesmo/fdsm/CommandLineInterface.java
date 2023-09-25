@@ -72,7 +72,7 @@ abstract class CommandLineInterface {
     final static protected OptionSpec<String> OPT_UNINSTALL = parser.accepts("uninstall", "Uninstall CAP from card").withRequiredArg().describedAs("CAP file / AID");
 
     final static protected OptionSpec<String> OPT_APP_ID = parser.accepts("app-id", "Application identifier")
-                                                                .requiredIf(OPT_STORE_DATA, OPT_SECURE_APDU, OPT_UNINSTALL, OPT_INSTALL, OPT_UPLOAD, OPT_CLEANUP, OPT_LIST_APPLETS, OPT_FLUSH_APPLETS, OPT_DELETE_APPLET)
+                                                                .availableIf(OPT_STORE_DATA, OPT_SECURE_APDU, OPT_UNINSTALL, OPT_INSTALL, OPT_UPLOAD, OPT_CLEANUP, OPT_LIST_APPLETS, OPT_FLUSH_APPLETS, OPT_DELETE_APPLET)
                                                                 .withRequiredArg().describedAs("appId");
     final static protected OptionSpec<Integer> OPT_QA = parser.accepts("qa", "Run a QA support session").withOptionalArg().ofType(Integer.class).describedAs("QA number");
 
@@ -81,6 +81,9 @@ abstract class CommandLineInterface {
 
     final static String ENV_FIDESMO_API_URL = "FIDESMO_API_URL";
     final static String ENV_FIDESMO_AUTH = "FIDESMO_AUTH";
+
+    final static String ENV_FIDESMO_APPID = "FIDESMO_APPID";
+
     final static String ENV_FIDESMO_DEBUG = "FIDESMO_DEBUG";
 
 
@@ -98,7 +101,7 @@ abstract class CommandLineInterface {
     protected static void inspectEnvironment(OptionSet args) {
         // Authentication
         if (!args.has(OPT_AUTH) && System.getenv().containsKey(ENV_FIDESMO_AUTH)) {
-            System.out.printf("Using $%s for authentication", ENV_FIDESMO_AUTH);
+            System.out.printf("Using $%s for authentication%n", ENV_FIDESMO_AUTH);
             auth = ClientAuthentication.forUserPasswordOrToken(System.getenv(ENV_FIDESMO_AUTH));
         }
         if (args.has(OPT_AUTH)) {
