@@ -30,6 +30,7 @@ import apdu4j.pcsc.SCard;
 import apdu4j.pcsc.TerminalManager;
 import apdu4j.pcsc.terminals.LoggingCardTerminal;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fidesmo.fdsm.FidesmoCard.ChipPlatform;
 import jnasmartcardio.Smartcardio;
@@ -45,17 +46,18 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.math.BigInteger;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.RunnableFuture;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 public class Main extends CommandLineInterface {
     static final String FDSM_SP = "8e5cdaae";
@@ -121,21 +123,31 @@ public class Main extends CommandLineInterface {
             if (requiresAuthentication()) {
                 AuthenticatedFidesmoApiClient client = getAuthenticatedClient();
 
-                // Delete a specific applet
-                if (args.has(OPT_DELETE_APPLET)) {
-                    String id = args.valueOf(OPT_DELETE_APPLET);
-                    // DWIM: take ID or CAP file as argument
-                    if (!id.toLowerCase().matches("[a-f0-9]{64}")) {
-                        Path candidate = Paths.get(id);
-                        if (Files.exists(candidate)) {
-                            CAPFile tmp = CAPFile.fromBytes(Files.readAllBytes(candidate));
-                            id = HexUtils.bin2hex(tmp.getLoadFileDataHash("SHA-256"));
-                        } else {
-                            throw new IllegalArgumentException("Not a SHA-256: " + id);
-                        }
+                // Delete a specific applet or recipe
+                if (args.has(OPT_DELETE)) {
+                    String id = args.valueOf(OPT_DELETE);
+
+                    final URI toDelete;
+                    if (id.toLowerCase().matches("[a-f0-9]{64}")) {
+                        toDelete = client.getURI(FidesmoApiClient.CAPFILES_ID_URL, getAppId(), id);
+                    } else if (Files.exists(Paths.get(id))) {
+                        // DWIM: capfile
+                        CAPFile tmp = CAPFile.fromBytes(Files.readAllBytes(Paths.get(id)));
+                        id = HexUtils.bin2hex(tmp.getLoadFileDataHash("SHA-256"));
+                        toDelete = client.getURI(FidesmoApiClient.CAPFILES_ID_URL, getAppId(), id);
+                    } else {
+                        // Maybe it is a recipe
+                        ArrayNode recipes = (ArrayNode) client.rpc(client.getURI(FidesmoApiClient.RECIPE_SERVICES_URL, getAppId()));
+                        String finalId = id;
+                        id = StreamSupport.stream(recipes.spliterator(), false)
+                                .map(r-> r.asText())
+                                .filter(r -> r.equals(finalId))
+                                .findFirst().orElseThrow( () -> new IllegalArgumentException("Not a recipe nor SHA-256: " + finalId));
+                        toDelete = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, getAppId(), id);
                     }
+
                     try {
-                        client.delete(client.getURI(FidesmoApiClient.CAPFILES_ID_URL, getAppId(), id));
+                        client.delete(toDelete);
                         System.out.println(id + " deleted.");
                     } catch (HttpResponseException e) {
                         if (e.getStatusCode() == 404) {
