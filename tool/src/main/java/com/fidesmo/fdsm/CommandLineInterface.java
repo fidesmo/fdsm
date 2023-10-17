@@ -33,6 +33,7 @@ import java.io.PrintStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.List;
 
 abstract class CommandLineInterface {
     static OptionParser parser = new OptionParser();
@@ -55,7 +56,8 @@ abstract class CommandLineInterface {
 
     final static protected OptionSpec<File> OPT_UPLOAD = parser.accepts("upload", "Upload CAP or recipe to Fidesmo").withRequiredArg().ofType(File.class).describedAs(".cap/.json file");
     final static protected OptionSpec<Void> OPT_LIST_APPLETS = parser.accepts("list-applets", "List applets at Fidesmo");
-    final static protected OptionSpec<String> OPT_DELETE_APPLET = parser.accepts("delete-applet", "Deletes applet at Fidesmo").withRequiredArg().describedAs("ID");
+    final static protected OptionSpec<String> OPT_DELETE = parser.acceptsAll(List.of("delete", "delete-applet"), "Deletes applets and recipes at Fidesmo").withRequiredArg().describedAs("ID");
+
     final static protected OptionSpec<Void> OPT_CARD_APPS = parser.accepts("card-apps", "List apps on the card");
     final static protected OptionSpec<Void> OPT_CARD_INFO = parser.accepts("card-info", "Show info about the card");
     final static protected OptionSpec<Void> OPT_OFFLINE = parser.accepts("offline", "Do not connect to Fidesmo");
@@ -72,8 +74,8 @@ abstract class CommandLineInterface {
     final static protected OptionSpec<String> OPT_UNINSTALL = parser.accepts("uninstall", "Uninstall CAP from card").withRequiredArg().describedAs("CAP file / AID");
 
     final static protected OptionSpec<String> OPT_APP_ID = parser.accepts("app-id", "Application identifier")
-                                                                .availableIf(OPT_STORE_DATA, OPT_SECURE_APDU, OPT_UNINSTALL, OPT_INSTALL, OPT_UPLOAD, OPT_CLEANUP, OPT_LIST_APPLETS, OPT_FLUSH_APPLETS, OPT_DELETE_APPLET)
-                                                                .withRequiredArg().describedAs("appId");
+            .availableIf(OPT_STORE_DATA, OPT_SECURE_APDU, OPT_UNINSTALL, OPT_INSTALL, OPT_UPLOAD, OPT_CLEANUP, OPT_LIST_APPLETS, OPT_FLUSH_APPLETS, OPT_DELETE)
+            .withRequiredArg().describedAs("appId");
     final static protected OptionSpec<Integer> OPT_QA = parser.accepts("qa", "Run a QA support session").withOptionalArg().ofType(Integer.class).describedAs("QA number");
 
     final static protected OptionSpec<Integer> OPT_TIMEOUT = parser.accepts("timeout", "Timeout for services").withRequiredArg().ofType(Integer.class).describedAs("minutes");
@@ -157,7 +159,7 @@ abstract class CommandLineInterface {
 
     public static boolean requiresAuthentication() {
         OptionSpec<?>[] commands = new OptionSpec<?>[]{
-                OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_SECURE_APDU, OPT_UPLOAD, OPT_DELETE_APPLET, OPT_FLUSH_APPLETS, OPT_CLEANUP, OPT_LIST_APPLETS, OPT_LIST_RECIPES
+                OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_SECURE_APDU, OPT_UPLOAD, OPT_DELETE, OPT_FLUSH_APPLETS, OPT_CLEANUP, OPT_LIST_APPLETS, OPT_LIST_RECIPES
         };
         return Arrays.stream(commands).anyMatch(a -> args.has(a));
     }
