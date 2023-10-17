@@ -126,23 +126,33 @@ public class Main extends CommandLineInterface {
                 // Delete a specific applet or recipe
                 if (args.has(OPT_DELETE)) {
                     String id = args.valueOf(OPT_DELETE);
-
+                    Path path = Paths.get(id);
+                    // DWIM: recipe
                     final URI toDelete;
                     if (id.toLowerCase().matches("[a-f0-9]{64}")) {
                         toDelete = client.getURI(FidesmoApiClient.CAPFILES_ID_URL, getAppId(), id);
-                    } else if (Files.exists(Paths.get(id))) {
-                        // DWIM: capfile
-                        CAPFile tmp = CAPFile.fromBytes(Files.readAllBytes(Paths.get(id)));
-                        id = HexUtils.bin2hex(tmp.getLoadFileDataHash("SHA-256"));
-                        toDelete = client.getURI(FidesmoApiClient.CAPFILES_ID_URL, getAppId(), id);
+                    } else if (Files.exists(path)) {
+                        // DWIM: capfile or recipe .json; This makes it the opposite of the upload operation
+                        File f = path.toFile();
+                        String extension = FilenameUtils.getExtension(f.getName());
+                        if (extension.equalsIgnoreCase("json")) {
+                            id = FilenameUtils.getBaseName(f.getName());
+                            toDelete = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, getAppId(), id);
+                        } else if (extension.equalsIgnoreCase("cap")) {
+                            CAPFile tmp = CAPFile.fromBytes(Files.readAllBytes(path));
+                            id = HexUtils.bin2hex(tmp.getLoadFileDataHash("SHA-256"));
+                            toDelete = client.getURI(FidesmoApiClient.CAPFILES_ID_URL, getAppId(), id);
+                        } else {
+                            throw new IllegalArgumentException("Only .cap and .json files are supported: " + id);
+                        }
                     } else {
-                        // Maybe it is a recipe
+                        // Maybe it is a recipe name ?
                         ArrayNode recipes = (ArrayNode) client.rpc(client.getURI(FidesmoApiClient.RECIPE_SERVICES_URL, getAppId()));
                         String finalId = id;
                         id = StreamSupport.stream(recipes.spliterator(), false)
-                                .map(r-> r.asText())
+                                .map(JsonNode::asText)
                                 .filter(r -> r.equals(finalId))
-                                .findFirst().orElseThrow( () -> new IllegalArgumentException("Not a recipe nor SHA-256: " + finalId));
+                                .findFirst().orElseThrow(() -> new IllegalArgumentException("Not a recipe nor SHA-256: " + finalId));
                         toDelete = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, getAppId(), id);
                     }
 
@@ -355,7 +365,7 @@ public class Main extends CommandLineInterface {
                         }
 
                         final ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(
-                            () -> bibo, fidesmoCard, client, delivery.getAppId().get(), delivery.getService(), formHandler
+                                () -> bibo, fidesmoCard, client, delivery.getAppId().get(), delivery.getService(), formHandler
                         );
 
                         if (args.has(OPT_TIMEOUT))
@@ -372,7 +382,7 @@ public class Main extends CommandLineInterface {
                     }
                     // --run always exists
                 }
-                
+
                 if (args.has(OPT_CARD_APPS)) {
                     FidesmoCard fidesmoCard = requireDevice(fidesmoMetadata);
                     fidesmoCard.ensureBatched(bibo, client, optTimeout, ignoreImplicitBatching, getCommandLineFormHandler());

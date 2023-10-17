@@ -56,7 +56,7 @@ abstract class CommandLineInterface {
 
     final static protected OptionSpec<File> OPT_UPLOAD = parser.accepts("upload", "Upload CAP or recipe to Fidesmo").withRequiredArg().ofType(File.class).describedAs(".cap/.json file");
     final static protected OptionSpec<Void> OPT_LIST_APPLETS = parser.accepts("list-applets", "List applets at Fidesmo");
-    final static protected OptionSpec<String> OPT_DELETE = parser.acceptsAll(List.of("delete", "delete-applet"), "Deletes applets and recipes at Fidesmo").withRequiredArg().describedAs("ID");
+    final static protected OptionSpec<String> OPT_DELETE = parser.acceptsAll(List.of("delete", "delete-applet"), "Deletes applets and recipes at Fidesmo").withRequiredArg().describedAs("file/hash/recipe");
 
     final static protected OptionSpec<Void> OPT_CARD_APPS = parser.accepts("card-apps", "List apps on the card");
     final static protected OptionSpec<Void> OPT_CARD_INFO = parser.accepts("card-info", "Show info about the card");
