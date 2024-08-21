@@ -75,8 +75,7 @@ abstract class CommandLineInterface {
 
     final static protected OptionSpec<String> OPT_APP_ID = parser.accepts("app-id", "Application identifier")
             .availableIf(OPT_STORE_DATA, OPT_SECURE_APDU, OPT_UNINSTALL, OPT_INSTALL, OPT_UPLOAD, OPT_CLEANUP, OPT_LIST_APPLETS, OPT_FLUSH_APPLETS, OPT_DELETE)
-            .withRequiredArg().describedAs("appId");
-    final static protected OptionSpec<Integer> OPT_QA = parser.accepts("qa", "Run a QA support session").withOptionalArg().ofType(Integer.class).describedAs("QA number");
+            .withRequiredArg().describedAs("appId");    
 
     final static protected OptionSpec<Integer> OPT_TIMEOUT = parser.accepts("timeout", "Timeout for services").withRequiredArg().ofType(Integer.class).describedAs("minutes");
     final static protected OptionSpec<Void> OPT_IGNORE_IMPLICIT_BATCHING = parser.accepts("ignore-implicit-batching", "Require explicit batching if not a Fidesmo device");
@@ -152,7 +151,7 @@ abstract class CommandLineInterface {
 
     public static boolean requiresCard() {
         OptionSpec<?>[] commands = new OptionSpec<?>[]{
-                OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_SECURE_APDU, OPT_RUN, OPT_CARD_APPS, OPT_CARD_INFO, OPT_QA
+                OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_SECURE_APDU, OPT_RUN, OPT_CARD_APPS, OPT_CARD_INFO
         };
         return Arrays.stream(commands).anyMatch(args::has);
     }
