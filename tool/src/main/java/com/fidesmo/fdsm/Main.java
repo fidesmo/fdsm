@@ -60,8 +60,6 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 public class Main extends CommandLineInterface {
-    static final String FDSM_SP = "8e5cdaae";
-
     public static void main(String[] argv) {
         System.setProperty("org.slf4j.simpleLogger.showThreadName", "true");
         System.setProperty("org.slf4j.simpleLogger.levelInBrackets", "true");
@@ -292,28 +290,6 @@ public class Main extends CommandLineInterface {
                 APDUBIBO bibo = new APDUBIBO(CardBIBO.wrap(card));
                 Optional<FidesmoCard> fidesmoMetadata = (args.has(OPT_OFFLINE) || args.has(OPT_IGNORE_IMPLICIT_BATCHING)) ? FidesmoCard.detectOffline(bibo) : FidesmoCard.detectOnline(bibo, client);
 
-                // Allows to run with any card
-                if (args.has(OPT_QA)) {
-                    String number = Integer.toString(ThreadLocalRandom.current().nextInt(900000) + 100000).substring(0, 6);
-                    if (args.valueOf(OPT_QA) != null) {
-                        number = args.valueOf(OPT_QA).toString();
-                    } else {
-                        System.out.printf("Your QA number is %s-%s%n", number.substring(0, 3), number.substring(3, 6));
-                    }
-                    FormHandler formHandler = getCommandLineFormHandler();
-
-                    ServiceDeliverySession cardSession = ServiceDeliverySession.getInstance(() -> bibo, fidesmoMetadata.orElseGet(FidesmoCard::dummy), client, FDSM_SP, number, formHandler);
-
-                    if (args.has(OPT_TIMEOUT))
-                        cardSession.setTimeoutMinutes(args.valueOf(OPT_TIMEOUT));
-                    CancellationWaitingFuture<ServiceDeliverySession.DeliveryResult> deliveryTask = new CancellationWaitingFuture<>(cardSession);
-
-                    if (!ServiceDeliverySession.deliverService(deliveryTask).isSuccess()) {
-                        fail("Failed to run service");
-                    } else {
-                        success();
-                    }
-                }
                 System.out.println("Using card in " + terminal.getName());
 
                 // Can be used always
