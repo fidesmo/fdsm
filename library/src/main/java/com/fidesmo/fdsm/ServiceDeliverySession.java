@@ -104,6 +104,8 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
     }
 
     public DeliveryResult deliver(BIBO bibo, String appId, String serviceId) throws IOException, UnsupportedCallbackException {
+        APDUBIBO apduBibo = new APDUBIBO(bibo);
+        card.selectEmpty(apduBibo);
         // Address #4
         JsonNode deviceInfo = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(card.getCIN()), card.getBatchId()));
         byte[] iin = HexUtils.decodeHexString_imp(deviceInfo.get("iin").asText());
@@ -164,9 +166,6 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
             deliveryRequest.put("msisdn", userInput.remove("msisdn").getValue());
 
         deliveryRequest.set("fields", mapToJsonNode(userInput));
-
-        APDUBIBO apduBibo = new APDUBIBO(bibo);
-        card.selectEmpty(apduBibo);
 
         JsonNode delivery = client.rpc(client.getURI(FidesmoApiClient.SERVICE_DELIVER_URL), deliveryRequest);
         String sessionId = delivery.get("sessionId").asText();
