@@ -21,6 +21,7 @@
  */
 package com.fidesmo.fdsm;
 
+import apdu4j.core.APDUBIBO;
 import apdu4j.core.BIBO;
 import apdu4j.core.BIBOException;
 import apdu4j.core.HexUtils;
@@ -136,17 +137,17 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
         }
 
         // Construct Delivery Request
-        ObjectNode deliveryrequest = JsonNodeFactory.instance.objectNode();
+        ObjectNode deliveryRequest = JsonNodeFactory.instance.objectNode();
 
-        deliveryrequest.put("appId", appId);
-        deliveryrequest.put("serviceId", serviceId);
+        deliveryRequest.put("appId", appId);
+        deliveryRequest.put("serviceId", serviceId);
 
         // cardId
         ObjectNode cardId = JsonNodeFactory.instance.objectNode();
         cardId.put("iin", HexUtils.bin2hex(iin));
         cardId.put("cin", HexUtils.bin2hex(card.getCIN()));
         cardId.put("platformVersion", platformVersion);
-        deliveryrequest.set("cardId", cardId);
+        deliveryRequest.set("cardId", cardId);
 
         // User input fields
         ArrayList<Field> fields = new ArrayList<>(fieldsFromNode(description.get("fieldsRequired")));
@@ -158,13 +159,16 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
 
         Map<String, Field> userInput = formHandler.processForm(fields);
         if (description.has("emailRequired"))
-            deliveryrequest.put("email", userInput.remove("email").getValue());
+            deliveryRequest.put("email", userInput.remove("email").getValue());
         if (description.has("msisdnRequired"))
-            deliveryrequest.put("msisdn", userInput.remove("msisdn").getValue());
+            deliveryRequest.put("msisdn", userInput.remove("msisdn").getValue());
 
-        deliveryrequest.set("fields", mapToJsonNode(userInput));
+        deliveryRequest.set("fields", mapToJsonNode(userInput));
 
-        JsonNode delivery = client.rpc(client.getURI(FidesmoApiClient.SERVICE_DELIVER_URL), deliveryrequest);
+        APDUBIBO apduBibo = new APDUBIBO(bibo);
+        card.selectEmpty(apduBibo);
+
+        JsonNode delivery = client.rpc(client.getURI(FidesmoApiClient.SERVICE_DELIVER_URL), deliveryRequest);
         String sessionId = delivery.get("sessionId").asText();
 
         logger.info("Delivering: {}", FidesmoApiClient.lamei18n(description.get("title")));
