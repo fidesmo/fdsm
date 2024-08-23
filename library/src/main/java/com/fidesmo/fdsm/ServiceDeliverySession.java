@@ -105,6 +105,7 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
 
     public DeliveryResult deliver(BIBO bibo, String appId, String serviceId) throws IOException, UnsupportedCallbackException {
         APDUBIBO apduBibo = new APDUBIBO(bibo);
+        //Reset after checking card info to avoid leaving FPA selected, which prevents some services to be run.
         card.selectEmpty(apduBibo);
         // Address #4
         JsonNode deviceInfo = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(card.getCIN()), card.getBatchId()));
