@@ -326,6 +326,8 @@ public class Main extends CommandLineInterface {
                     DeliveryUrl delivery = DeliveryUrl.parse(args.valueOf(OPT_RUN));
 
                     if (delivery.isWebSocket()) {
+                        FidesmoCard fidesmoCard = fidesmoMetadata.get();
+                        fidesmoCard.selectEmpty(bibo);
                         boolean success = WsClient.execute(new URI(delivery.getService()), bibo, auth).join().isSuccess();
                         if (!success) {
                             fail("Fail to run a script");
