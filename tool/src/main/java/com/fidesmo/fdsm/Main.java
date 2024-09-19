@@ -589,7 +589,7 @@ public class Main extends CommandLineInterface {
 
             for (String pair : fieldPairs) {
                 if (!pair.isEmpty()) {
-                    String[] fieldAndValue = pair.split("=");
+                    String[] fieldAndValue = pair.split("=", 2);
 
                     if (fieldAndValue.length != 2) {
                         throw new IllegalArgumentException("Wrong format for fields pair: " + pair + ". Required: fieldId=fieldValue,");
