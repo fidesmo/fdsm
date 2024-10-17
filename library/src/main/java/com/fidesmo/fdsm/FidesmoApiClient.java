@@ -51,9 +51,10 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Map;
+import java.text.MessageFormat;
 
 public class FidesmoApiClient {
-    public static final String APIv2 = "https://api.fidesmo.com/";
+    public static final String APIv3 = "https://api.fidesmo.com/v3";
 
     public static final String APPS_URL = "apps%s";
     public static final String APP_INFO_URL = "apps/%s";
@@ -95,7 +96,7 @@ public class FidesmoApiClient {
 
     @Deprecated
     public FidesmoApiClient() {
-        this(APIv2, null, null);
+        this(APIv3, null, null);
     }
 
     public FidesmoApiClient(String url, ClientAuthentication authentication, OutputStream apidump) {
@@ -111,7 +112,7 @@ public class FidesmoApiClient {
     }
 
     public FidesmoApiClient(ClientAuthentication authentication, OutputStream apidump) {
-        this(APIv2, authentication, apidump);
+        this(APIv3, authentication, apidump);
     }
 
     public CloseableHttpResponse get(URI uri) throws IOException {
@@ -193,7 +194,7 @@ public class FidesmoApiClient {
 
         req.setHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.toString());
         req.setHeader(HttpHeaders.CONTENT_TYPE, ContentType.APPLICATION_JSON.toString());
-        req.setHeader("Protocol-Requirements", "parametrisedTranslations");
+        req.setHeader(HttpHeaders.ACCEPT_LANGUAGE, Locale.getDefault().toLanguageTag());
 
         try (CloseableHttpResponse response = transmit(req)) {
             if (apidump != null) {
@@ -242,25 +243,40 @@ public class FidesmoApiClient {
 
     // Prefer English if system locale is not present
     // to convert a possible multilanguage node to a string
-        public static String lamei18n(JsonNode n) {
+    public static String lamei18n(JsonNode n) {
         // For missing values
         if (n == null)
             return "";
         if (!n.isEmpty()) {
-            //Check if JSON comes in new Translation format, it can be multilanguage
-            JsonNode jsonNodeFormat = (n.has("text")) ? n.get("text") : n;
-            try {
-                Map<String, Object> langs = mapper.convertValue(jsonNodeFormat, new TypeReference<Map<String, Object>>() {
+            boolean isNewFormat = n.has("text");
+            if (isNewFormat) {
+                return FidesmoApiClient.buildMessageWithParams(n);
+            }
+            else {
+                Map<String, Object> langs = mapper.convertValue(n, new TypeReference<Map<String, Object>>() {
                 });
                 Map.Entry<String, Object> first = langs.entrySet().iterator().next();
                 return langs.getOrDefault(Locale.getDefault().getLanguage(), langs.getOrDefault("en", first.getValue())).toString();
             }
-            catch (Exception e) {
-                return jsonNodeFormat.asText();
-            }
-
         } else {
             return n.asText();
         }
+    }
+
+
+    public static String buildMessageWithParams(JsonNode n) {
+
+        String text =  n.path("text").asText();
+
+        JsonNode paramsNode = n.path("params");
+
+        // Convert the params array to String[]
+        String[] params = new String[paramsNode.size()];
+        for (int i = 0; i < paramsNode.size(); i++) {
+            params[i] = paramsNode.get(i).asText();
+        }
+
+        MessageFormat mf = new MessageFormat(text.replace("'", "''"));
+        return mf.format(params);
     }
 }
