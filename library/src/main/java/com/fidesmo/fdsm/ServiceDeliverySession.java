@@ -531,7 +531,7 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
         }
     }
 
-    public static ServiceDeliverySession.DeliveryResult deliverService(final RunnableFuture<DeliveryResult> serviceDelivery) {
+    public static DeliveryResult deliverService(final RunnableFuture<DeliveryResult> serviceDelivery) {
         Thread cleanup = new Thread(() -> {
             System.err.println("\nCtrl-C received, cancelling delivery");
             serviceDelivery.cancel(true);
@@ -548,7 +548,7 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
         try {
             // Run in current thread
             serviceDelivery.run();
-            ServiceDeliverySession.DeliveryResult result = serviceDelivery.get();
+            DeliveryResult result = serviceDelivery.get();
             ran = true;
             return result;
         } catch (ExecutionException e) {

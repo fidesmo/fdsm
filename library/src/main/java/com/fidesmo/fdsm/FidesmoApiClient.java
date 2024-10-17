@@ -161,11 +161,11 @@ public class FidesmoApiClient {
         }
 
         CloseableHttpResponse response = http.execute(request, context);
-        int responsecode = response.getStatusLine().getStatusCode();
-        if (responsecode < 200 || responsecode > 299) {
+        int responseCode = response.getStatusLine().getStatusCode();
+        if (responseCode < 200 || responseCode > 299) {
             String message = response.getStatusLine() + "\n" + IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
             response.close();
-            throw new HttpResponseException(responsecode, message);
+            throw new HttpResponseException(responseCode, message);
         }
         return response;
     }
@@ -193,6 +193,7 @@ public class FidesmoApiClient {
 
         req.setHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.toString());
         req.setHeader(HttpHeaders.CONTENT_TYPE, ContentType.APPLICATION_JSON.toString());
+        req.setHeader("Protocol-Requirements", "parametrisedTranslations");
 
         try (CloseableHttpResponse response = transmit(req)) {
             if (apidump != null) {
@@ -241,15 +242,23 @@ public class FidesmoApiClient {
 
     // Prefer English if system locale is not present
     // to convert a possible multilanguage node to a string
-    public static String lamei18n(JsonNode n) {
+        public static String lamei18n(JsonNode n) {
         // For missing values
         if (n == null)
             return "";
-        if (n.size() > 0) {
-            Map<String, Object> langs = mapper.convertValue(n, new TypeReference<Map<String, Object>>() {
-            });
-            Map.Entry<String, Object> first = langs.entrySet().iterator().next();
-            return langs.getOrDefault(Locale.getDefault().getLanguage(), langs.getOrDefault("en", first.getValue())).toString();
+        if (!n.isEmpty()) {
+            //Check if JSON comes in new Translation format, it can be multilanguage
+            JsonNode jsonNodeFormat = (n.has("text")) ? n.get("text") : n;
+            try {
+                Map<String, Object> langs = mapper.convertValue(jsonNodeFormat, new TypeReference<Map<String, Object>>() {
+                });
+                Map.Entry<String, Object> first = langs.entrySet().iterator().next();
+                return langs.getOrDefault(Locale.getDefault().getLanguage(), langs.getOrDefault("en", first.getValue())).toString();
+            }
+            catch (Exception e) {
+                return jsonNodeFormat.asText();
+            }
+
         } else {
             return n.asText();
         }
