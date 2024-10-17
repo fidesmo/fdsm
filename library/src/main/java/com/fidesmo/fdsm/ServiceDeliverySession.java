@@ -170,7 +170,7 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
 
         JsonNode delivery = client.rpc(client.getURI(FidesmoApiClient.SERVICE_DELIVER_URL), deliveryRequest);
         String sessionId = delivery.get("sessionId").asText();
-        
+
         logger.info("Delivering: {}", FidesmoApiClient.lamei18n(description.get("title")));
         logger.info("Session ID: {}", sessionId);
 

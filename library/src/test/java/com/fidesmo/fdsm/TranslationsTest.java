@@ -65,4 +65,13 @@ public class TranslationsTest {
 
         assertEquals(FidesmoApiClient.lamei18n(jsonNode), "Your card has been removed");
     }
+    @Test
+    public void returnMessagesInNewFormatWithEmptyParams() throws JsonProcessingException {
+        String jsonString = "{  \"id\": \"service.statuses.success\", \"text\": \"Your card has been removed\", \"params\": []}";
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode jsonNode = objectMapper.readTree(jsonString);
+
+        assertEquals(FidesmoApiClient.lamei18n(jsonNode), "Your card has been removed");
+    }
 }
