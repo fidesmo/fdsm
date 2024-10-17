@@ -326,9 +326,7 @@ public class Main extends CommandLineInterface {
                     DeliveryUrl delivery = DeliveryUrl.parse(args.valueOf(OPT_RUN));
 
                     if (delivery.isWebSocket()) {
-                        if (fidesmoMetadata.isPresent()) {
-                            fidesmoMetadata.get().selectEmpty(bibo);
-                        }                                                
+                        fidesmoMetadata.ifPresent(fidesmoCard -> fidesmoCard.selectEmpty(bibo));
                         boolean success = WsClient.execute(new URI(delivery.getService()), bibo, auth).join().isSuccess();
                         if (!success) {
                             fail("Fail to run a script");
@@ -494,15 +492,15 @@ public class Main extends CommandLineInterface {
         List<FidesmoApp> result = new ArrayList<>();
         // Construct list in one go
         for (byte[] app : apps) {
-            JsonNode appdesc = client.rpc(client.getURI(FidesmoApiClient.APP_INFO_URL, HexUtils.bin2hex(app)));
+            JsonNode appDesc = client.rpc(client.getURI(FidesmoApiClient.APP_INFO_URL, HexUtils.bin2hex(app)));
             // Multilanguague
             String appID = HexUtils.bin2hex(app);
-            String appName = FidesmoApiClient.lamei18n(appdesc.get("name"));
-            String appVendor = FidesmoApiClient.lamei18n(appdesc.get("organization").get("name"));
+            String appName = FidesmoApiClient.lamei18n(appDesc.get("name"));
+            String appVendor = FidesmoApiClient.lamei18n(appDesc.get("organization").get("name"));
             FidesmoApp fidesmoApp = new FidesmoApp(app, appName, appVendor);
             // Fetch services
             JsonNode services = client.rpc(client.getURI(FidesmoApiClient.APP_SERVICES_URL, appID));
-            if (services.size() > 0) {
+            if (!services.isEmpty()) {
                 for (JsonNode s : services) {
                     if (verbose) {
                         JsonNode service = client.rpc(client.getURI(FidesmoApiClient.SERVICE_URL, appID, s.asText()));
@@ -523,7 +521,7 @@ public class Main extends CommandLineInterface {
         out.println("#  appId - name and vendor");
         for (FidesmoApp app : apps) {
             out.println(HexUtils.bin2hex(app.id).toLowerCase() + " - " + app.name + " (by " + app.vendor + ")");
-            if (app.services.size() > 0) {
+            if (!app.services.isEmpty()) {
                 if (verbose) {
                     for (FidesmoService service : app.services) {
                         out.println("           " + service.name + " - " + service.description);
