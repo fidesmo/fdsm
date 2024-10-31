@@ -51,9 +51,10 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Map;
+import java.text.MessageFormat;
 
 public class FidesmoApiClient {
-    public static final String APIv2 = "https://api.fidesmo.com/";
+    public static final String APIv3 = "https://api.fidesmo.com/v3";
 
     public static final String APPS_URL = "apps%s";
     public static final String APP_INFO_URL = "apps/%s";
@@ -95,7 +96,7 @@ public class FidesmoApiClient {
 
     @Deprecated
     public FidesmoApiClient() {
-        this(APIv2, null, null);
+        this(APIv3, null, null);
     }
 
     public FidesmoApiClient(String url, ClientAuthentication authentication, OutputStream apidump) {
@@ -111,7 +112,7 @@ public class FidesmoApiClient {
     }
 
     public FidesmoApiClient(ClientAuthentication authentication, OutputStream apidump) {
-        this(APIv2, authentication, apidump);
+        this(APIv3, authentication, apidump);
     }
 
     public CloseableHttpResponse get(URI uri) throws IOException {
@@ -161,11 +162,11 @@ public class FidesmoApiClient {
         }
 
         CloseableHttpResponse response = http.execute(request, context);
-        int responsecode = response.getStatusLine().getStatusCode();
-        if (responsecode < 200 || responsecode > 299) {
+        int responseCode = response.getStatusLine().getStatusCode();
+        if (responseCode < 200 || responseCode > 299) {
             String message = response.getStatusLine() + "\n" + IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
             response.close();
-            throw new HttpResponseException(responsecode, message);
+            throw new HttpResponseException(responseCode, message);
         }
         return response;
     }
@@ -193,6 +194,7 @@ public class FidesmoApiClient {
 
         req.setHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.toString());
         req.setHeader(HttpHeaders.CONTENT_TYPE, ContentType.APPLICATION_JSON.toString());
+        req.setHeader(HttpHeaders.ACCEPT_LANGUAGE, Locale.getDefault().toLanguageTag());
 
         try (CloseableHttpResponse response = transmit(req)) {
             if (apidump != null) {
@@ -245,13 +247,36 @@ public class FidesmoApiClient {
         // For missing values
         if (n == null)
             return "";
-        if (n.size() > 0) {
-            Map<String, Object> langs = mapper.convertValue(n, new TypeReference<Map<String, Object>>() {
-            });
-            Map.Entry<String, Object> first = langs.entrySet().iterator().next();
-            return langs.getOrDefault(Locale.getDefault().getLanguage(), langs.getOrDefault("en", first.getValue())).toString();
+        if (!n.isEmpty()) {
+            boolean isNewFormat = n.has("text");
+            if (isNewFormat) {
+                return FidesmoApiClient.buildMessageWithParams(n);
+            }
+            else {
+                Map<String, Object> langs = mapper.convertValue(n, new TypeReference<Map<String, Object>>() {
+                });
+                Map.Entry<String, Object> first = langs.entrySet().iterator().next();
+                return langs.getOrDefault(Locale.getDefault().getLanguage(), langs.getOrDefault("en", first.getValue())).toString();
+            }
         } else {
             return n.asText();
         }
+    }
+
+
+    public static String buildMessageWithParams(JsonNode n) {
+
+        String text =  n.path("text").asText();
+
+        JsonNode paramsNode = n.path("params");
+
+        // Convert the params array to String[]
+        String[] params = new String[paramsNode.size()];
+        for (int i = 0; i < paramsNode.size(); i++) {
+            params[i] = paramsNode.get(i).asText();
+        }
+
+        MessageFormat mf = new MessageFormat(text.replace("'", "''"));
+        return mf.format(params);
     }
 }
