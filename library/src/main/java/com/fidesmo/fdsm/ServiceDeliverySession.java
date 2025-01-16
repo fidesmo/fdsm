@@ -27,6 +27,7 @@ import apdu4j.core.BIBOException;
 import apdu4j.core.HexUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.http.client.HttpResponseException;
@@ -167,6 +168,12 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
             deliveryRequest.put("msisdn", userInput.remove("msisdn").getValue());
 
         deliveryRequest.set("fields", mapToJsonNode(userInput));
+        ObjectNode node = JsonNodeFactory.instance.objectNode();
+        var arr = JsonNodeFactory.instance.arrayNode();
+        arr.add("se-access");
+        node.put("description", "ios/;Fidesmo/2.16.1/1.0.2;iPhone");
+        node.putIfAbsent("capabilities", arr);
+        deliveryRequest.putIfAbsent("clientInfo", node);
 
         JsonNode delivery = client.rpc(client.getURI(FidesmoApiClient.SERVICE_DELIVER_URL), deliveryRequest);
         String sessionId = delivery.get("sessionId").asText();
@@ -463,11 +470,20 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
 
         for (JsonNode fieldNode : fieldsNode) {
             String label = FidesmoApiClient.lamei18n(fieldNode.get("label"));
+
+            List<String> fieldsList = new ArrayList<>();
+            JsonNode labels = fieldNode.get("labels");
+            if (labels != null && labels.isArray()) {
+                ArrayNode a = (ArrayNode) labels;
+                System.out.printf("labels: %s\n", a.toString());
+                a.elements().forEachRemaining(e -> fieldsList.add(FidesmoApiClient.lamei18n(e)));
+            }
             fields.add(new Field(
                     fieldNode.get("id").asText(),
                     label,
                     fieldNode.get("type").asText(),
-                    Optional.ofNullable(fieldNode.get("format")).map(JsonNode::asText).orElse(null)
+                    Optional.ofNullable(fieldNode.get("format")).map(JsonNode::asText).orElse(null),
+                    fieldsList
             ));
         }
 
