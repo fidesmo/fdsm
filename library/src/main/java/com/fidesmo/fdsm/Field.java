@@ -21,11 +21,13 @@
  */
 package com.fidesmo.fdsm;
 
+import java.util.List;
 import java.util.Optional;
 
 public class Field {
     private final String id;
     private final String label;
+    private final List<String> labels;
     private final String type;
     private final String format;
     private String value;
@@ -35,6 +37,15 @@ public class Field {
         this.label = label;
         this.type = type;
         this.format = format;
+        this.labels = null;
+    }
+
+    public Field(String id, String label, String type, String format, List<String> labels) {
+        this.id = id;
+        this.label = label;
+        this.type = type;
+        this.format = format;
+        this.labels = List.copyOf(labels);
     }
 
     public String getId() {
@@ -43,6 +54,10 @@ public class Field {
 
     public String getLabel() {
         return label;
+    }
+
+    public List<String> getLabels() {
+        return List.copyOf(labels);
     }
 
     public String getType() {
