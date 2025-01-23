@@ -93,7 +93,13 @@ public class CommandLineFormHandler implements FormHandler {
                 } while (input.isPresent() && !input.get().trim().matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$"));
                 return input;
             case "option":
-                String[] options = f.getLabels().toArray(new String[f.getLabels().size()]);
+                String[] options;
+                if (f.getLabels() == null || f.getLabels().isEmpty()) {
+                    //Try to fall back to old format
+                    options = f.getLabel().split("\n");
+                } else {
+                    options = f.getLabels().toArray(new String[f.getLabels().size()]);
+                }
                 List<String> indexes = IntStream.range(0, options.length).mapToObj(i -> String.valueOf(i)).collect(Collectors.toList());
                 Set<String> allowed = indexes.stream().collect(Collectors.toSet());
                 String format = IntStream.range(0, options.length).mapToObj(i -> String.valueOf(i)).collect(Collectors.joining(","));

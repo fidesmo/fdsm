@@ -45,7 +45,7 @@ public class Field {
         this.label = label;
         this.type = type;
         this.format = format;
-        this.labels = labels;
+        this.labels = List.copyOf(labels);
     }
 
     public String getId() {
@@ -57,7 +57,7 @@ public class Field {
     }
 
     public List<String> getLabels() {
-        return labels;
+        return List.copyOf(labels);
     }
 
     public String getType() {

@@ -168,12 +168,6 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
             deliveryRequest.put("msisdn", userInput.remove("msisdn").getValue());
 
         deliveryRequest.set("fields", mapToJsonNode(userInput));
-        ObjectNode node = JsonNodeFactory.instance.objectNode();
-        var arr = JsonNodeFactory.instance.arrayNode();
-        arr.add("se-access");
-        node.put("description", "ios/;Fidesmo/2.16.1/1.0.2;iPhone");
-        node.putIfAbsent("capabilities", arr);
-        deliveryRequest.putIfAbsent("clientInfo", node);
 
         JsonNode delivery = client.rpc(client.getURI(FidesmoApiClient.SERVICE_DELIVER_URL), deliveryRequest);
         String sessionId = delivery.get("sessionId").asText();
@@ -470,12 +464,10 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
 
         for (JsonNode fieldNode : fieldsNode) {
             String label = FidesmoApiClient.lamei18n(fieldNode.get("label"));
-
             List<String> fieldsList = new ArrayList<>();
             JsonNode labels = fieldNode.get("labels");
             if (labels != null && labels.isArray()) {
                 ArrayNode a = (ArrayNode) labels;
-                System.out.printf("labels: %s\n", a.toString());
                 a.elements().forEachRemaining(e -> fieldsList.add(FidesmoApiClient.lamei18n(e)));
             }
             fields.add(new Field(
