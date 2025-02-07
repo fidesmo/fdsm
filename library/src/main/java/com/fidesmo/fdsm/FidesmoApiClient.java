@@ -82,6 +82,7 @@ public class FidesmoApiClient {
     private final CloseableHttpClient http;
     private final HttpClientContext context = HttpClientContext.create();
     private final String apiurl;
+    private final ClientDescription description;
     protected final ClientAuthentication authentication;
 
     static DefaultPrettyPrinter printer = new DefaultPrettyPrinter();
@@ -98,22 +99,29 @@ public class FidesmoApiClient {
     public FidesmoApiClient() {
         this(APIv3, null, null);
     }
+    
+    public FidesmoApiClient(ClientAuthentication authentication, OutputStream apidump) {
+        this(APIv3, authentication, apidump);
+    }
 
     public FidesmoApiClient(String url, ClientAuthentication authentication, OutputStream apidump) {
+        this(APIv3, authentication, apidump, ClientDescription.fdsm());
+    }
+
+    public FidesmoApiClient(String url, ClientAuthentication authentication, OutputStream apidump, ClientDescription description) {
         this.apiurl = url;
         this.authentication = authentication;
+        this.description = description;
 
         this.http = HttpClientBuilder
                 .create()
                 .useSystemProperties()
-                .setUserAgent("fdsm/" + getVersion())
+                .setUserAgent("fdsm/" + description.getVersion())
+                .setDefaultHeaders(description.asHeaders())
                 .build();
         this.apidump = apidump == null ? null : new PrintStream(apidump, true, StandardCharsets.UTF_8);
     }
 
-    public FidesmoApiClient(ClientAuthentication authentication, OutputStream apidump) {
-        this(APIv3, authentication, apidump);
-    }
 
     public CloseableHttpResponse get(URI uri) throws IOException {
         HttpGet get = new HttpGet(uri);
@@ -227,18 +235,8 @@ public class FidesmoApiClient {
         apidump = b ? System.out : null;
     }
 
-    public static String getVersion() {
-        try (InputStream versionfile = FidesmoApiClient.class.getResourceAsStream("version.txt")) {
-            String version = "unknown-development";
-            if (versionfile != null) {
-                try (BufferedReader vinfo = new BufferedReader(new InputStreamReader(versionfile, StandardCharsets.US_ASCII))) {
-                    version = vinfo.readLine();
-                }
-            }
-            return version;
-        } catch (IOException e) {
-            return "unknown-error";
-        }
+    public String getVersion() {
+        return this.description.getVersion();
     }
 
     // Prefer English if system locale is not present

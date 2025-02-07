@@ -84,7 +84,7 @@ public class Main extends CommandLineInterface {
 
             // Check for version
             if (args.has(OPT_VERSION)) {
-                System.out.println("# fdsm " + FidesmoApiClient.getVersion());
+                System.out.println("# fdsm " + ClientDescription.getBuildVersion());
                 checkVersions();
             }
 
@@ -553,7 +553,7 @@ public class Main extends CommandLineInterface {
             // Convert both to numbers
             String latestTag = v.get("tag_name").asText("v00.00.00");
             int latest = Integer.parseInt((latestTag.startsWith("v") ? latestTag.substring(1, 9) : latestTag.substring(0, 8)).replace(".", ""));
-            String currentTag = FidesmoApiClient.getVersion();
+            String currentTag = ClientDescription.getBuildVersion();
             int current = Integer.parseInt((currentTag.startsWith("v") ? currentTag.substring(1, 9) : currentTag.substring(0, 8)).replace(".", ""));
             if (current < latest) {
                 System.out.println("Please download updated version from\n\n" + v.get("html_url").asText());

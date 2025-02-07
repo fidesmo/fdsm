@@ -135,7 +135,7 @@ abstract class CommandLineInterface {
         }
 
         if (args.has(OPT_HELP) || args.specs().size() == 0) {
-            System.out.println("# fdsm " + FidesmoApiClient.getVersion());
+            System.out.println("# fdsm " + ClientDescription.getBuildVersion());
             parser.printHelpOn(System.out);
             success("\nMore information at https://github.com/fidesmo/fdsm\n");
         }
