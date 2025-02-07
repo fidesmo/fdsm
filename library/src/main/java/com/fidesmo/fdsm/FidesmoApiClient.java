@@ -105,7 +105,7 @@ public class FidesmoApiClient {
     }
 
     public FidesmoApiClient(String url, ClientAuthentication authentication, OutputStream apidump) {
-        this(APIv3, authentication, apidump, ClientDescription.fdsm());
+        this(url, authentication, apidump, ClientDescription.fdsm());
     }
 
     public FidesmoApiClient(String url, ClientAuthentication authentication, OutputStream apidump, ClientDescription description) {
