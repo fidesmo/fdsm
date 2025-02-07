@@ -54,7 +54,7 @@ import java.util.Map;
 import java.text.MessageFormat;
 
 public class FidesmoApiClient {
-    public static final String APIv3 = "https://api.fidesmo.com/v3";
+    public static final String APIv3 = "https://api.fidesmo.com/v3/";
 
     public static final String APPS_URL = "apps%s";
     public static final String APP_INFO_URL = "apps/%s";
@@ -109,7 +109,7 @@ public class FidesmoApiClient {
     }
 
     public FidesmoApiClient(String url, ClientAuthentication authentication, OutputStream apidump, ClientDescription description) {
-        this.apiurl = url;
+        this.apiurl = url.endsWith("/") ? url : url + "/";
         this.authentication = authentication;
         this.description = description;
 

@@ -111,9 +111,7 @@ abstract class CommandLineInterface {
 
         // API URL
         try {
-            String url = new URL(System.getenv().getOrDefault(ENV_FIDESMO_API_URL, FidesmoApiClient.APIv3)).toString();
-            // normalize URL
-            apiurl = url.endsWith("/") ? url : url + "/";
+            apiurl = new URL(System.getenv().getOrDefault(ENV_FIDESMO_API_URL, FidesmoApiClient.APIv3)).toString();
         } catch (MalformedURLException e) {
             System.err.printf("Invalid $%s: %s%n", ENV_FIDESMO_API_URL, System.getenv(ENV_FIDESMO_API_URL));
         }
