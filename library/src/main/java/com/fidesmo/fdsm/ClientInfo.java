@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -36,7 +37,7 @@ public class ClientInfo {
     public ClientInfo(String name, String version, Set<Capability> capabilities, Locale locale) {
         this.name = name;
         this.version = version;
-        this.capabilities = capabilities;
+        this.capabilities = Collections.unmodifiableSet(capabilities);
         this.locale = locale;
     }
 
