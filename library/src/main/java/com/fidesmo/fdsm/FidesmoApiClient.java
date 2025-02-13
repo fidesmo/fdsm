@@ -49,9 +49,10 @@ import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
-import java.text.MessageFormat;
+import java.util.regex.Pattern;
 
 public class FidesmoApiClient {
     public static final String APIv3 = "https://api.fidesmo.com/v3/";
@@ -82,7 +83,7 @@ public class FidesmoApiClient {
     private final CloseableHttpClient http;
     private final HttpClientContext context = HttpClientContext.create();
     private final String apiurl;
-    private final ClientDescription description;
+    private final ClientInfo info;
     protected final ClientAuthentication authentication;
 
     static DefaultPrettyPrinter printer = new DefaultPrettyPrinter();
@@ -105,19 +106,19 @@ public class FidesmoApiClient {
     }
 
     public FidesmoApiClient(String url, ClientAuthentication authentication, OutputStream apidump) {
-        this(url, authentication, apidump, ClientDescription.fdsm());
+        this(url, authentication, apidump, ClientInfo.fdsm());
     }
 
-    public FidesmoApiClient(String url, ClientAuthentication authentication, OutputStream apidump, ClientDescription description) {
+    public FidesmoApiClient(String url, ClientAuthentication authentication, OutputStream apidump, ClientInfo info) {
         this.apiurl = url.endsWith("/") ? url : url + "/";
         this.authentication = authentication;
-        this.description = description;
+        this.info = info;
 
         this.http = HttpClientBuilder
                 .create()
                 .useSystemProperties()
-                .setUserAgent("fdsm/" + description.getVersion())
-                .setDefaultHeaders(description.asHeaders())
+                .setUserAgent("fdsm/" + ClientInfo.getBuildVersion())
+                .setDefaultHeaders(info.asHeaders())
                 .build();
         this.apidump = apidump == null ? null : new PrintStream(apidump, true, StandardCharsets.UTF_8);
     }
@@ -137,7 +138,7 @@ public class FidesmoApiClient {
         put.setEntity(new StringEntity(RecipeGenerator.mapper.writeValueAsString(json), ContentType.APPLICATION_JSON));
         
         if (apidump != null) {
-            apidump.println(put.getMethod() + ": " + put.getURI());  
+            apidump.println(put.getMethod() + ": " + put.getURI());
             apidump.println(mapper.writer(printer).writeValueAsString(json));
         }
 
@@ -199,11 +200,6 @@ public class FidesmoApiClient {
                 apidump.println(mapper.writer(printer).writeValueAsString(request));
         }
 
-
-        req.setHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.toString());
-        req.setHeader(HttpHeaders.CONTENT_TYPE, ContentType.APPLICATION_JSON.toString());
-        req.setHeader(HttpHeaders.ACCEPT_LANGUAGE, Locale.getDefault().toLanguageTag());
-
         try (CloseableHttpResponse response = transmit(req)) {
             if (apidump != null) {
                 apidump.println("RECV: " + response.getStatusLine().getStatusCode() + " " + response.getStatusLine().getReasonPhrase());
@@ -236,7 +232,11 @@ public class FidesmoApiClient {
     }
 
     public String getVersion() {
-        return this.description.getVersion();
+        return this.info.getVersion();
+    }
+
+    public ClientInfo getInfo() {
+        return this.info;
     }
 
     // Prefer English if system locale is not present
@@ -270,11 +270,14 @@ public class FidesmoApiClient {
 
         // Convert the params array to String[]
         String[] params = new String[paramsNode.size()];
+
         for (int i = 0; i < paramsNode.size(); i++) {
             params[i] = paramsNode.get(i).asText();
         }
 
-        MessageFormat mf = new MessageFormat(text.replace("'", "''"));
-        return mf.format(params);
+        Pattern p = Pattern.compile("\\{(\\d{1,3})\\}");
+        
+        // Not using MessageFormat as it's too smart and fails on some complex strings
+        return p.matcher(text).replaceAll(m -> params[Integer.parseInt(m.group(1))]);
     }
 }

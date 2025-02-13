@@ -53,15 +53,22 @@ public class WsClient {
     private final CompletableFuture<ServiceDeliverySession.DeliveryResult> deliveryResult = new CompletableFuture<>();
     private String sessionId;
 
-    public WsClient(URI uri, BIBO card, ClientAuthentication authentication) {
-        this.uri = uri;
-        this.headers = authentication != null ? Collections.singletonMap(HttpHeaders.AUTHORIZATION, authentication.toAuthenticationHeader()) : null;
+    public WsClient(URI uri, BIBO card, ClientAuthentication authentication, ClientInfo info) {
+        this.uri = uri;        
+        this.headers = new HashMap<String, String>();
+        
+        if (authentication != null) {
+            this.headers.put(HttpHeaders.AUTHORIZATION, authentication.toAuthenticationHeader());
+        }
+
+        info.asHeaders().stream().forEach(h -> this.headers.put(h.getName(), h.getValue()));
+
         this.card = card;
         this.client = buildClient();
     }
 
-    public static CompletableFuture<ServiceDeliverySession.DeliveryResult> execute(URI uri, BIBO card, ClientAuthentication authentication) {
-        return new WsClient(uri, card, authentication).run();
+    public static CompletableFuture<ServiceDeliverySession.DeliveryResult> execute(URI uri, BIBO card, ClientAuthentication authentication, ClientInfo info) {
+        return new WsClient(uri, card, authentication, info).run();
     }
 
     protected WebSocketClient buildClient() {
