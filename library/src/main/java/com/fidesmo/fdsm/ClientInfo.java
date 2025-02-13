@@ -21,7 +21,7 @@ public class ClientInfo {
         SE_ACCESS, PAYMENT_AID_ACCESS, ACCOUNTS, APP2APP;
         
         public static String stringify(Capability c) {
-            return c.name().replaceAll("_", "-");
+            return c.name().toLowerCase().replaceAll("_", "-");
         }
     }
 
