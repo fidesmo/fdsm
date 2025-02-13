@@ -453,7 +453,7 @@ public class FidesmoCard {
                 DeliveryUrl delivery = deliveryOpt.get();
                 System.out.println("Device is not batched. Completing batching.");
                 if (delivery.isWebSocket()) {
-                    if (!WsClient.execute(new URI(delivery.getService()), bibo, null).join().isSuccess()) {
+                    if (!WsClient.execute(new URI(delivery.getService()), bibo, null, client.getInfo()).join().isSuccess()) {
                         throw new RuntimeException("Failed to batch the device");
                     }
                 } else {

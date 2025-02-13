@@ -84,7 +84,7 @@ public class Main extends CommandLineInterface {
 
             // Check for version
             if (args.has(OPT_VERSION)) {
-                System.out.println("# fdsm " + FidesmoApiClient.getVersion());
+                System.out.println("# fdsm " + ClientInfo.getBuildVersion());
                 checkVersions();
             }
 
@@ -327,7 +327,7 @@ public class Main extends CommandLineInterface {
 
                     if (delivery.isWebSocket()) {
                         fidesmoMetadata.ifPresent(fidesmoCard -> fidesmoCard.selectEmpty(bibo));
-                        boolean success = WsClient.execute(new URI(delivery.getService()), bibo, auth).join().isSuccess();
+                        boolean success = WsClient.execute(new URI(delivery.getService()), bibo, auth, clientInfo()).join().isSuccess();
                         if (!success) {
                             fail("Fail to run a script");
                         } else {
@@ -534,7 +534,7 @@ public class Main extends CommandLineInterface {
     }
 
     private static FidesmoApiClient getClient() {
-        return new FidesmoApiClient(apiurl, auth, apiTraceStream);
+        return new FidesmoApiClient(apiurl, auth, apiTraceStream, clientInfo());
     }
 
     private static FidesmoCard requireDevice(Optional<FidesmoCard> device) {
@@ -547,13 +547,13 @@ public class Main extends CommandLineInterface {
                 System.out.println("# Omitting online version check");
             return;
         }
-        FidesmoApiClient client = new FidesmoApiClient(apiurl, null, apiTraceStream);
+        FidesmoApiClient client = new FidesmoApiClient(apiurl, null, apiTraceStream, clientInfo());
         try {
             JsonNode v = client.rpc(new URI("https://api.fidesmo.com/fdsm-version"));
             // Convert both to numbers
             String latestTag = v.get("tag_name").asText("v00.00.00");
             int latest = Integer.parseInt((latestTag.startsWith("v") ? latestTag.substring(1, 9) : latestTag.substring(0, 8)).replace(".", ""));
-            String currentTag = FidesmoApiClient.getVersion();
+            String currentTag = ClientInfo.getBuildVersion();
             int current = Integer.parseInt((currentTag.startsWith("v") ? currentTag.substring(1, 9) : currentTag.substring(0, 8)).replace(".", ""));
             if (current < latest) {
                 System.out.println("Please download updated version from\n\n" + v.get("html_url").asText());
@@ -606,7 +606,7 @@ public class Main extends CommandLineInterface {
         if (auth == null) {
             throw new IllegalArgumentException("Provide authentication either via --auth or $FIDESMO_AUTH");
         }
-        return AuthenticatedFidesmoApiClient.getInstance(apiurl, auth, apiTraceStream);
+        return AuthenticatedFidesmoApiClient.getInstance(apiurl, auth, apiTraceStream, clientInfo());
     }
 
     private static String getAppId() {

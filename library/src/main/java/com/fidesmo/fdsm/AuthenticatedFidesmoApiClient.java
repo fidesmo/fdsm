@@ -36,12 +36,16 @@ import java.util.Optional;
 
 public class AuthenticatedFidesmoApiClient extends FidesmoApiClient {
 
-    private AuthenticatedFidesmoApiClient(String url, ClientAuthentication auth, PrintStream apidump) {
-        super(url, auth, apidump);
+    private AuthenticatedFidesmoApiClient(String url, ClientAuthentication auth, PrintStream apidump, ClientInfo info) {
+        super(url, auth, apidump, info);
     }
 
     public static AuthenticatedFidesmoApiClient getInstance(String url, ClientAuthentication auth, PrintStream apidump) throws IllegalArgumentException {
-        return new AuthenticatedFidesmoApiClient(url, auth, apidump);
+        return getInstance(url, auth, apidump, ClientInfo.fdsm());
+    }
+
+    public static AuthenticatedFidesmoApiClient getInstance(String url, ClientAuthentication auth, PrintStream apidump, ClientInfo info) throws IllegalArgumentException {
+        return new AuthenticatedFidesmoApiClient(url, auth, apidump, info);
     }
 
     // Upload a CAP file

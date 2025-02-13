@@ -34,6 +34,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 abstract class CommandLineInterface {
     static OptionParser parser = new OptionParser();
@@ -42,6 +43,7 @@ abstract class CommandLineInterface {
     final static protected OptionSpec<Void> OPT_VERSION = parser.acceptsAll(Arrays.asList("V", "version"), "Show version and check for updates");
 
     final static protected OptionSpec<String> OPT_READER = parser.accepts("reader", "Specify reader to use").withRequiredArg().describedAs("reader");
+    final static protected OptionSpec<String> OPT_LANGUAGE = parser.accepts("language", "Specify client language (IETF language tag format)").withRequiredArg().describedAs("language");
     final static protected OptionSpec<Void> OPT_TRACE_API = parser.accepts("trace-api", "Trace Fidesmo API");
     final static protected OptionSpec<Void> OPT_TRACE_APDU = parser.accepts("trace-apdu", "Trace APDU-s");
     final static protected OptionSpec<Void> OPT_VERBOSE = parser.accepts("verbose", "Be verbose");
@@ -96,6 +98,7 @@ abstract class CommandLineInterface {
     protected static boolean verbose = false;
     protected static boolean offline = false;
     protected static boolean ignoreImplicitBatching = false;
+    protected static Locale clientLocale = Locale.getDefault();
 
     protected static OptionSet args = null;
 
@@ -111,9 +114,7 @@ abstract class CommandLineInterface {
 
         // API URL
         try {
-            String url = new URL(System.getenv().getOrDefault(ENV_FIDESMO_API_URL, FidesmoApiClient.APIv3)).toString();
-            // normalize URL
-            apiurl = url.endsWith("/") ? url : url + "/";
+            apiurl = new URL(System.getenv().getOrDefault(ENV_FIDESMO_API_URL, FidesmoApiClient.APIv3)).toString();
         } catch (MalformedURLException e) {
             System.err.printf("Invalid $%s: %s%n", ENV_FIDESMO_API_URL, System.getenv(ENV_FIDESMO_API_URL));
         }
@@ -135,9 +136,13 @@ abstract class CommandLineInterface {
         }
 
         if (args.has(OPT_HELP) || args.specs().size() == 0) {
-            System.out.println("# fdsm " + FidesmoApiClient.getVersion());
+            System.out.println("# fdsm " + ClientInfo.getBuildVersion());
             parser.printHelpOn(System.out);
             success("\nMore information at https://github.com/fidesmo/fdsm\n");
+        }
+        
+        if (args.has(OPT_LANGUAGE)) {
+            clientLocale = Locale.forLanguageTag(args.valueOf(OPT_LANGUAGE));
         }
 
         // Set some variables
@@ -161,6 +166,10 @@ abstract class CommandLineInterface {
                 OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_SECURE_APDU, OPT_UPLOAD, OPT_DELETE, OPT_FLUSH_APPLETS, OPT_CLEANUP, OPT_LIST_APPLETS, OPT_LIST_RECIPES
         };
         return Arrays.stream(commands).anyMatch(a -> args.has(a));
+    }
+
+    public static ClientInfo clientInfo() {
+        return ClientInfo.fdsm().withLocale(clientLocale);    
     }
 
     static void fail(String message) {
