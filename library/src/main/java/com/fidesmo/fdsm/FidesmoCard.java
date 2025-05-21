@@ -176,12 +176,11 @@ public class FidesmoCard {
     }
 
     static final HexBytes getUID = HexBytes.b(new CommandAPDU(0xFF, 0xCA, 0x00, 0x00, 0x00).getBytes());
-    static final HexBytes selectISD = HexBytes.b(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, 0x00).getBytes());
+    static final HexBytes selectISDempty = HexBytes.b(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, 0x00).getBytes());
     static final HexBytes getCPLC = HexBytes.b(new CommandAPDU(0x80, 0xCA, 0x9F, 0x7F, 0x00).getBytes());
     static final HexBytes getDataCIN = HexBytes.b(new CommandAPDU(0x80, 0xCA, 0x00, 0x45, 0x00).getBytes());
     static final HexBytes selectFidesmoPlatform = HexBytes.b(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, FIDESMO_PLATFORM_AID.getBytes()).getBytes());
     static final HexBytes selectFidesmoBatch = HexBytes.b(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, FIDESMO_BATCH_AID.getBytes()).getBytes());
-    static final HexBytes selectEmpty = HexBytes.b(new CommandAPDU(0x00, 0xA4, 0x00, 0x00, 0x00).getBytes());
 
     public static Map<HexBytes, byte[]> probe(BIBO channel) {
         // preserve order, just for fun
@@ -191,8 +190,8 @@ public class FidesmoCard {
         ResponseAPDU response = bibo.transmit(new CommandAPDU(getUID.value()));
         r.put(getUID, response.getBytes());
         // Select ISD
-        response = bibo.transmit(new CommandAPDU(selectISD.value()));
-        r.put(selectISD, response.getBytes());
+        response = bibo.transmit(new CommandAPDU(selectISDempty.value()));
+        r.put(selectISDempty, response.getBytes());
         if (response.getSW() == 0x9000) {
             // Get CPLC (always available for PV2)
             response = bibo.transmit(new CommandAPDU(getCPLC.value()));
@@ -333,7 +332,7 @@ public class FidesmoCard {
     }
 
     public byte[] selectEmpty(APDUBIBO channel) {
-        CommandAPDU select = new CommandAPDU(selectEmpty.value());
+        CommandAPDU select = new CommandAPDU(selectISDempty.value());
         ResponseAPDU response;
 
         response = channel.transmit(select);
