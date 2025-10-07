@@ -21,39 +21,26 @@
  */
 package com.fidesmo.fdsm;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 public class Field {
     private final String id;
-    private final String label;
     private final List<String> labels;
     private final String type;
-    private final String format;
+    private final Optional<String> format;
     private String value;
 
-    public Field(String id, String label, String type, String format) {
+    public Field(String id, List<String> labels, String type, Optional<String> format) {
         this.id = id;
-        this.label = label;
+        this.labels = Collections.unmodifiableList(labels);
         this.type = type;
         this.format = format;
-        this.labels = null;
-    }
-
-    public Field(String id, String label, String type, String format, List<String> labels) {
-        this.id = id;
-        this.label = label;
-        this.type = type;
-        this.format = format;
-        this.labels = List.copyOf(labels);
     }
 
     public String getId() {
         return id;
-    }
-
-    public String getLabel() {
-        return label;
     }
 
     public List<String> getLabels() {
@@ -73,6 +60,21 @@ public class Field {
     }
 
     public Optional<String> getFormat() {
-        return Optional.ofNullable(format);
+        return format;
+    }
+
+    public String getSingleLabel() {
+        return labels.isEmpty() ? "" : labels.get(0);
+    }
+
+    @Override
+    public String toString() {
+        return "Field{" +
+                "id='" + id + '\'' +
+                (labels != null ? ", labels=" + labels : "") +
+                ", type='" + type + '\'' +
+                ", format='" + format + '\'' +
+                ", value='" + value + '\'' +
+                '}';
     }
 }

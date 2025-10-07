@@ -19,7 +19,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package com.fidesmo.fdsm;
+package com.fidesmo.fdsm.exceptions;
 
 public class FDSMException extends RuntimeException {
     public static final long serialVersionUID = -8067674386438803572L;

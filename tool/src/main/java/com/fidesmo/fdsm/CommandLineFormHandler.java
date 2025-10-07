@@ -47,7 +47,7 @@ public class CommandLineFormHandler implements FormHandler {
         for (Field field : form) {
             // Display-only fields
             if ("text".equals(field.getType()) || "image".equals(field.getType())) {
-                System.out.println(field.getLabel());
+                System.out.println(field.getSingleLabel());
                 continue;
             }
             // Value fields
@@ -68,24 +68,24 @@ public class CommandLineFormHandler implements FormHandler {
         Optional<String> input;
         switch (f.getType()) {
             case "checkbox":
-                System.out.println(f.getLabel() + ":");
+                System.out.println(f.getSingleLabel() + ":");
                 do {
                     System.out.println("Must be \"y\" or \"n\"");
                     input = Optional.ofNullable(console.readLine("> [y/n] "));
                 } while (input.isPresent() && !input.get().trim().toLowerCase().matches("^(y|n)$"));
                 return input.map(i -> i.trim().toLowerCase().equals("y") ? "true" : "false");
             case "edit":
-                System.out.println(f.getLabel() + ":");
+                System.out.println(f.getSingleLabel() + ":");
                 return Optional.ofNullable(console.readLine("> "));
             case "paymentcard":
-                System.out.println(f.getLabel() + ":");
+                System.out.println(f.getSingleLabel() + ":");
                 do {
                     System.out.println("Format must be \"PAN;MM/YY;CVV\" or \"PAN;MM/YY\" if no CVC doesn't apply");
                     input = Optional.ofNullable(console.readLine("> "));
                 } while (input.isPresent() && !input.get().trim().matches("^[0-9]{13,19};[0-1][0-9]/[0-9]{2}(;[0-9]{3})?$"));
                 return input;
             case "date":
-                System.out.println(f.getLabel() + ":");
+                System.out.println(f.getSingleLabel() + ":");
                 // Validate
                 do {
                     System.out.println("Format must be \"YYYY-MM-DD\"");
@@ -93,13 +93,7 @@ public class CommandLineFormHandler implements FormHandler {
                 } while (input.isPresent() && !input.get().trim().matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$"));
                 return input;
             case "option":
-                String[] options;
-                if (f.getLabels() == null || f.getLabels().isEmpty()) {
-                    //Try to fall back to old format
-                    options = f.getLabel().split("\n");
-                } else {
-                    options = f.getLabels().toArray(new String[f.getLabels().size()]);
-                }
+                String[] options = f.getLabels().toArray(new String[f.getLabels().size()]);
                 List<String> indexes = IntStream.range(0, options.length).mapToObj(i -> String.valueOf(i)).collect(Collectors.toList());
                 Set<String> allowed = indexes.stream().collect(Collectors.toSet());
                 String format = IntStream.range(0, options.length).mapToObj(i -> String.valueOf(i)).collect(Collectors.joining(","));

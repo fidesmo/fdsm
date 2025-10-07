@@ -30,6 +30,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fidesmo.fdsm.exceptions.FDSMException;
+import com.fidesmo.fdsm.exceptions.NoAccessToDeviceException;
+import com.fidesmo.fdsm.exceptions.ServiceNotAvailableException;
+
 import org.apache.http.client.HttpResponseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -115,11 +119,22 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
         int platformVersion = capabilities.get("platformVersion").asInt();
 
         // Query service parameters
-        JsonNode service = client.rpc(client.getURI(FidesmoApiClient.SERVICE_FOR_CARD_URL, appId, serviceId, HexUtils.bin2hex(card.getCIN())), null);
-
-        // We do not support paid services
-        if (service.has("price")) {
-            throw new FDSMException("Services requiring payment are not supported by fdsm. Please use the Android app!");
+        JsonNode service;
+        try {
+            service = client.rpc(client.getURI(FidesmoApiClient.SERVICE_FOR_CARD_URL, appId, serviceId, HexUtils.bin2hex(card.getCIN())), null);
+        } catch (HttpResponseException e) {
+            switch(e.getStatusCode()) {
+                case 404:
+                    throw new ServiceNotAvailableException("Unknown service ID: " + serviceId, ServiceNotAvailableException.ErrorCode.UNKNOWN_SERVICE, e);
+                case 403:
+                    throw new ServiceNotAvailableException("Service is not available for this device", ServiceNotAvailableException.ErrorCode.NOT_AVAILABLE_FOR_DEVICE, e);
+                case 406:
+                    throw new ServiceNotAvailableException("Service is not available for this client", ServiceNotAvailableException.ErrorCode.NOT_AVAILABLE_FOR_DEVICE, e);                    
+                case 412:
+                    throw new ServiceNotAvailableException("Service is not available for the current device state", ServiceNotAvailableException.ErrorCode.NOT_AVAILABLE_IN_CURRENT_STATE, e);
+                default:
+                    throw e;
+            }
         }
 
         JsonNode description = service.get("description");
@@ -157,9 +172,9 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
         ArrayList<Field> fields = new ArrayList<>(fieldsFromNode(description.get("fieldsRequired")));
         // Old style fields hack
         if (description.has("emailRequired"))
-            fields.add(new Field("email", FidesmoApiClient.lamei18n(description.get("emailRequired")), "edit", null));
+            fields.add(new Field("email", Collections.singletonList(FidesmoApiClient.lamei18n(description.get("emailRequired"))), "edit", Optional.empty()));
         if (description.has("msisdnRequired"))
-            fields.add(new Field("msisdn", FidesmoApiClient.lamei18n(description.get("msisdnRequired")), "edit", null));
+            fields.add(new Field("msisdn", Collections.singletonList(FidesmoApiClient.lamei18n(description.get("msisdnRequired"))), "edit", Optional.empty()));
 
         Map<String, Field> userInput = formHandler.processForm(fields);
         if (description.has("emailRequired"))
@@ -169,7 +184,16 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
 
         deliveryRequest.set("fields", mapToJsonNode(userInput));
 
-        JsonNode delivery = client.rpc(client.getURI(FidesmoApiClient.SERVICE_DELIVER_URL), deliveryRequest);
+        JsonNode delivery;
+        
+        try {
+            delivery = client.rpc(client.getURI(FidesmoApiClient.SERVICE_DELIVER_URL), deliveryRequest);
+        } catch (HttpResponseException e) {
+            if (e.getStatusCode() == 403) {
+                throw new NoAccessToDeviceException("Access to device is denied. Device is owned by another user", e);
+            } else throw e;
+        }
+        
         String sessionId = delivery.get("sessionId").asText();
 
         logger.info("Delivering: {}", FidesmoApiClient.lamei18n(description.get("title")));
@@ -462,20 +486,25 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
 
         List<Field> fields = new ArrayList<>(fieldsNode.size());
 
-        for (JsonNode fieldNode : fieldsNode) {
-            String label = FidesmoApiClient.lamei18n(fieldNode.get("label"));
-            List<String> fieldsList = new ArrayList<>();
+        for (JsonNode fieldNode : fieldsNode) {            
+            List<String> labelsList = new ArrayList<>();
+            
             JsonNode labels = fieldNode.get("labels");
             if (labels != null && labels.isArray()) {
                 ArrayNode a = (ArrayNode) labels;
-                a.elements().forEachRemaining(e -> fieldsList.add(FidesmoApiClient.lamei18n(e)));
+                a.elements().forEachRemaining(e -> labelsList.add(FidesmoApiClient.lamei18n(e)));
+            } else {
+                String label = FidesmoApiClient.lamei18n(fieldNode.get("label"));
+                
+                if (label != null) {
+                    labelsList.addAll(Arrays.asList(label.split("\n")));
+                }
             }
             fields.add(new Field(
-                    fieldNode.get("id").asText(),
-                    label,
-                    fieldNode.get("type").asText(),
-                    Optional.ofNullable(fieldNode.get("format")).map(JsonNode::asText).orElse(null),
-                    fieldsList
+                fieldNode.get("id").asText(),
+                labelsList,
+                fieldNode.get("type").asText(),
+                Optional.ofNullable(fieldNode.get("format")).map(JsonNode::asText)
             ));
         }
 
