@@ -31,7 +31,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.MalformedURLException;
-import java.net.URL;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -114,8 +115,8 @@ abstract class CommandLineInterface {
 
         // API URL
         try {
-            apiurl = new URL(System.getenv().getOrDefault(ENV_FIDESMO_API_URL, FidesmoApiClient.APIv3)).toString();
-        } catch (MalformedURLException e) {
+            apiurl = new URI(System.getenv().getOrDefault(ENV_FIDESMO_API_URL, FidesmoApiClient.APIv3)).toURL().toString();
+        } catch (MalformedURLException | URISyntaxException e) {
             System.err.printf("Invalid $%s: %s%n", ENV_FIDESMO_API_URL, System.getenv(ENV_FIDESMO_API_URL));
         }
     }

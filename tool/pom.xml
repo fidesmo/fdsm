@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.fidesmo</groupId>
         <artifactId>fdsm-toolbox</artifactId>
-        <version>25.02.15-SNAPSHOT</version>
+        <version>25.11.25-SNAPSHOT</version>
     </parent>
 
     <artifactId>fdsm-tool</artifactId>
@@ -83,7 +83,7 @@
                                     </classPath>
                                     <jre>
                                         <path>%JAVA_HOME%;%PATH%</path>
-                                        <minVersion>11.0</minVersion>
+                                        <minVersion>21.0</minVersion>
                                     </jre>
                                     <versionInfo>
                                         <fileVersion>${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}.${parsedVersion.buildNumber}</fileVersion>
