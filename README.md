@@ -5,7 +5,7 @@ FDSM is _the_ developer's Swiss Army Knife for working with a [Fidesmo device](h
 # Getting started
 
 You will need the following:
-- Latest [Java 11](https://adoptopenjdk.net/) for running the app
+- Latest [Java 21](https://adoptopenjdk.net/) for running the app
 - a [Fidesmo Developer account](https://fidesmo.com/book-demo/) for your `$FIDESMO_AUTH` token and `$FIDESMO_APPID`
 - a Fidesmo device (get one from the [shop](http://shop.fidesmo.com))
 - a [PC/SC NFC reader](https://github.com/fidesmo/fdsm/wiki/Choosing-a-desktop-reader)
