@@ -83,7 +83,7 @@
                                     </classPath>
                                     <jre>
                                         <path>%JAVA_HOME%;%PATH%</path>
-                                        <minVersion>17.0</minVersion>
+                                        <minVersion>21.0</minVersion>
                                     </jre>
                                     <versionInfo>
                                         <fileVersion>${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}.${parsedVersion.buildNumber}</fileVersion>
