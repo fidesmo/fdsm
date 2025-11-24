@@ -34,14 +34,14 @@ public class ClientInfo {
     private Set<Capability> capabilities;
     private Locale locale;
 
-    public ClientInfo(String name, String version, Set<Capability> capabilities, Locale locale) {
+    private ClientInfo(String name, String version, Set<Capability> capabilities, Locale locale) {
         this.name = name;
         this.version = version;
         this.capabilities = Collections.unmodifiableSet(capabilities);
         this.locale = locale;
     }
 
-    public ClientInfo(String name, String version) {
+    private ClientInfo(String name, String version) {
         this(name, version, DEFAULT_CAPABILITIES, Locale.getDefault());
     }
 

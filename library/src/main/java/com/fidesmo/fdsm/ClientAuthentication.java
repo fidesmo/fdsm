@@ -29,9 +29,6 @@ public class ClientAuthentication {
     private final String authentication;
 
     private ClientAuthentication(String auth) {
-        if (auth.split(":").length > 2) {
-            throw new IllegalArgumentException("Wrong authentication format");
-        }
         this.authentication = auth;
     }
 
@@ -47,6 +44,9 @@ public class ClientAuthentication {
     }
 
     public static ClientAuthentication forToken(String token) {
+        if (token.split(":").length > 2) {
+            throw new IllegalArgumentException("Wrong authentication format");
+        }
         return new ClientAuthentication(token);
     }
 

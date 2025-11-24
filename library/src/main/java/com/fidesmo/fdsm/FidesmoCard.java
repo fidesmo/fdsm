@@ -149,8 +149,7 @@ public class FidesmoCard {
     /** Indicates that device is fully batched or requires batching operation otherwise */
     private final boolean batched;
 
-    public FidesmoCard(byte[] fid, byte[] cplc, int batchId, boolean batched, Optional<byte[]> uid) {
-        if (fid == null) throw new NullPointerException("fid can't be null");
+    private FidesmoCard(byte[] fid, byte[] cplc, int batchId, boolean batched, Optional<byte[]> uid) {
         this.cin = fid.clone();
         this.cplc = cplc == null ? null : cplc.clone();
         this.batchId = batchId;
@@ -295,7 +294,8 @@ public class FidesmoCard {
                 return Optional.empty();
             }
         }
-            
+
+        if (cin == null) throw new NullPointerException("fid can't be null");
         return Optional.of(new FidesmoCard(cin, cplc, new BigInteger(1, batch).intValue(), true, uid));
     }
 
