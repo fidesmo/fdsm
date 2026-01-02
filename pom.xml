@@ -48,12 +48,12 @@
 
     <distributionManagement>
         <repository>
-            <id>syltburk-releases</id>
-            <url>s3://releases.syltburk.fidesmo.com</url>
+            <id>marmeladburk-releases</id>
+            <url>s3://releases.marmeladburk.fidesmo.com</url>
         </repository>
         <snapshotRepository>
-            <id>syltburk-snapshots</id>
-            <url>s3://snapshots.syltburk.fidesmo.com</url>
+            <id>marmeladburk-snapshots</id>
+            <url>s3://snapshots.marmeladburk.fidesmo.com</url>
         </snapshotRepository>
     </distributionManagement>
 
