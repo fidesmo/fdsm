@@ -48,9 +48,13 @@
 
     <distributionManagement>
         <repository>
-            <id>ossrh-fidesmo</id>
-            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+            <id>syltburk-releases</id>
+            <url>s3://releases.syltburk.fidesmo.com</url>
         </repository>
+        <snapshotRepository>
+            <id>syltburk-snapshots</id>
+            <url>s3://snapshots.syltburk.fidesmo.com</url>
+        </snapshotRepository>
     </distributionManagement>
 
     <profiles>
@@ -78,17 +82,6 @@
                                 </configuration>
                             </execution>
                         </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.sonatype.plugins</groupId>
-                        <artifactId>nexus-staging-maven-plugin</artifactId>
-                        <version>1.6.13</version>
-                        <extensions>true</extensions>
-                        <configuration>
-                            <serverId>ossrh-fidesmo</serverId>
-                            <nexusUrl>https://oss.sonatype.org/</nexusUrl>
-                            <autoReleaseAfterClose>true</autoReleaseAfterClose>
-                        </configuration>
                     </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
@@ -127,6 +120,13 @@
     </profiles>
 
     <build>
+        <extensions>
+            <extension>
+                <groupId>org.kuali.maven.wagons</groupId>
+                <artifactId>maven-s3-wagon</artifactId>
+                <version>1.2.1</version>
+            </extension>
+        </extensions>    
         <plugins>
             <!-- Minimum Maven version -->
             <plugin>
