@@ -264,8 +264,13 @@ public class Main extends CommandLineInterface {
                 CardTerminal terminal = null;
                 if (args.has(OPT_READER)) {
                     String reader = args.valueOf(OPT_READER);
-                    for (CardTerminal t : terminals.list()) {
-                        if (t.getName().toLowerCase().contains(reader.toLowerCase())) {
+
+                    // prefer exact match, but fallback to contains if none
+                    for (CardTerminal t : terminals.list()) {                        
+                        if (t.getName().equalsIgnoreCase(reader)) {
+                            terminal = t;
+                            break;
+                        } else if (t.getName().toLowerCase().contains(reader.toLowerCase())) {
                             terminal = t;
                         }
                     }
