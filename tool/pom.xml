@@ -89,7 +89,7 @@
                                         <fileVersion>${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}.${parsedVersion.buildNumber}</fileVersion>
                                         <txtFileVersion>${project.version}</txtFileVersion>
                                         <fileDescription>Fidesmo utility</fileDescription>
-                                        <copyright>(C) 2026 - present Fidesmo AB</copyright>
+                                        <copyright>(C) 2018 - present Fidesmo AB</copyright>
                                         <productVersion>${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}.${parsedVersion.buildNumber}</productVersion>
                                         <txtProductVersion>${project.version}</txtProductVersion>
                                         <productName>fdsm</productName>
