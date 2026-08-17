@@ -84,6 +84,8 @@ abstract class CommandLineInterface {
 
     final static protected OptionSpec<Integer> OPT_TIMEOUT = parser.accepts("timeout", "Timeout for services").withRequiredArg().ofType(Integer.class).describedAs("minutes");
     final static protected OptionSpec<Void> OPT_IGNORE_IMPLICIT_BATCHING = parser.accepts("ignore-implicit-batching", "Require explicit batching if not a Fidesmo device");
+    
+    final static protected OptionSpec<Void> OPT_NON_INTERACTIVE = parser.accepts("non-interactive", "Run in non-interactive mode without prompts");
 
     final static String ENV_FIDESMO_API_URL = "FIDESMO_API_URL";
     final static String ENV_FIDESMO_AUTH = "FIDESMO_AUTH";

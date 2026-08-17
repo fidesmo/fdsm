@@ -606,6 +606,10 @@ public class Main extends CommandLineInterface {
     }
 
     private static void confirm(String message) {
+        if (args.has(OPT_NON_INTERACTIVE)) {
+            return;
+        }
+        
         System.out.print(message + " (y/N): ");
         try (Scanner scanner = new Scanner(System.in)) {
             String response = scanner.nextLine().trim().toLowerCase();
