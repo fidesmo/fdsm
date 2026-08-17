@@ -136,7 +136,7 @@ public class FidesmoApiClient {
         
         if (apidump != null) {
             apidump.println(put.getMethod() + ": " + put.getURI());
-            apidump.println(mapper.writer().writeValueAsString(json));
+            apidump.println(mapper.writer().with(printer).writeValueAsString(json));
         }
 
         return transmit(put);
