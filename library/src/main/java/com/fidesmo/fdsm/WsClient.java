@@ -23,35 +23,41 @@ package com.fidesmo.fdsm;
 
 import apdu4j.core.BIBO;
 import apdu4j.core.BIBOException;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.node.ObjectNode;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.http.HttpHeaders;
-import org.java_websocket.client.WebSocketClient;
-import org.java_websocket.handshake.ServerHandshake;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.WebSocket;
+import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class WsClient {
     private final static Logger logger = LoggerFactory.getLogger(WsClient.class);
 
     private static final ObjectMapper mapper = new ObjectMapper();
+    private static final int pingSecondsPeriod = 30;
 
     private final URI uri;
     private final Map<String, String> headers;
     private final BIBO card;
-    private final WebSocketClient client;
+    private WebSocket client;
     private final CompletableFuture<ServiceDeliverySession.DeliveryResult> deliveryResult = new CompletableFuture<>();
     private String sessionId;
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     public WsClient(URI uri, BIBO card, ClientAuthentication authentication, ClientInfo info) {
         this.uri = uri;        
@@ -64,47 +70,11 @@ public class WsClient {
         info.asHeaders().stream().forEach(h -> this.headers.put(h.getName(), h.getValue()));
 
         this.card = card;
-        this.client = buildClient();
+        this.client = null;
     }
 
     public static CompletableFuture<ServiceDeliverySession.DeliveryResult> execute(URI uri, BIBO card, ClientAuthentication authentication, ClientInfo info) {
         return new WsClient(uri, card, authentication, info).run();
-    }
-
-    protected WebSocketClient buildClient() {
-        return new WebSocketClient(uri, headers) {
-            public void onOpen(ServerHandshake handshake) {
-            }
-
-            @Override
-            public void onMessage(String data) {
-                try {
-                    processCommand(mapper.readTree(data));
-                } catch (IOException | DecoderException | BIBOException e) {
-                    logger.warn("Error during delivery", e);
-
-                    respondWithStatus("CLIENT_ERROR", Optional.of(e.getMessage()));
-
-                    deliveryResult.complete(new ServiceDeliverySession.DeliveryResult(sessionId, false, e.getMessage(), null));
-
-                    close();
-                }
-            }
-
-            @Override
-            public void onClose(int code, String reason, boolean remote) {
-                if (!deliveryResult.isDone()) {
-                    deliveryResult.completeExceptionally(new Exception(reason));
-                }
-            }
-
-            @Override
-            public void onError(Exception ex) {
-                logger.warn("Error during obtaining commands: ", ex);
-                deliveryResult.completeExceptionally(ex);
-            }
-        };
-
     }
 
     public CompletableFuture<ServiceDeliverySession.DeliveryResult> run() {
@@ -112,8 +82,32 @@ public class WsClient {
             throw new IllegalStateException("WsClient is single-use!");
         }
 
-        client.connect();
-        
+        HttpClient.Builder httpClientBuilder = HttpClient.newBuilder();
+        WebSocket.Builder webSocketBuilder = httpClientBuilder.build().newWebSocketBuilder();
+        headers.forEach(webSocketBuilder::header);
+
+        webSocketBuilder.buildAsync(uri, buildWsListener()).whenComplete((webSocket, error) -> {
+            if (error != null) {
+                deliveryResult.completeExceptionally(error);
+                return;
+            }
+
+            client = webSocket;
+
+            scheduler.scheduleAtFixedRate(() -> {
+                if (client != null) {
+                    client.sendPing(ByteBuffer.wrap(new byte[] {1})).exceptionally(ex -> {
+                        logger.warn("Failed to send ping message: " + ex.getMessage());
+                        return null;
+                    });
+                }
+            }, pingSecondsPeriod, pingSecondsPeriod, TimeUnit.SECONDS);
+        });
+
+        deliveryResult.whenComplete((result, error) -> {
+            close();
+        });
+
         return deliveryResult.thenApply(result -> {
             String message = result.getMessage().isEmpty() ? "" : (": " + result.getMessage());
 
@@ -127,17 +121,66 @@ public class WsClient {
         });
     }
 
+    protected WebSocket.Listener buildWsListener() {
+        
+        return new WebSocket.Listener() {
+            private final StringBuilder incomingMessage = new StringBuilder();
+            @Override
+            public void onOpen(WebSocket webSocket) {
+                webSocket.request(1);
+            }
+
+            @Override
+            public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+                incomingMessage.append(data);
+
+                if (!last) {
+                    webSocket.request(1);
+                    return CompletableFuture.completedFuture(null);
+                }
+                
+                String message = incomingMessage.toString();
+                incomingMessage.setLength(0);
+            
+                try {
+                    processCommand(mapper.readTree(message));
+                } catch (IOException | DecoderException | BIBOException e) {
+                    logger.warn("Error during delivery", e);
+                    respondWithStatus("CLIENT_ERROR", Optional.ofNullable(e.getMessage()));
+                    deliveryResult.complete(new ServiceDeliverySession.DeliveryResult(sessionId, false, e.getMessage(), null));
+                }
+
+                webSocket.request(1);
+                return CompletableFuture.completedFuture(null);
+            }
+
+            @Override
+            public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
+                if (!deliveryResult.isDone()) {
+                    deliveryResult.completeExceptionally(new Exception(reason));
+                }
+                return CompletableFuture.completedFuture(null);
+            }
+
+            @Override
+            public void onError(WebSocket webSocket, Throwable error) {
+                logger.warn("Error during obtaining commands: ", error);
+                deliveryResult.completeExceptionally(error);
+            }
+        };
+    }
+
     protected void processCommand(JsonNode node) throws IOException, DecoderException {
-        switch (node.get("type").asText()) {
+        switch (node.get("type").asString()) {
             case "id":
-                sessionId = node.get("value").asText();
+                sessionId = node.get("value").asString();
                 logger.info("Session ID: " + sessionId);
                 break;
             case "commands":
                 List<String> responses = new ArrayList<>();
 
                 for (JsonNode jsonNode : node.get("commands")) {
-                    byte[] command = Hex.decodeHex(jsonNode.asText());
+                    byte[] command = Hex.decodeHex(jsonNode.asString());
                     responses.add(Hex.encodeHexString(card.transceive(command)));
                 }
 
@@ -147,18 +190,15 @@ public class WsClient {
                 respond(res);
                 break;
             case "status":
-                String code = node.get("code").asText();
-                String message = node.get("message").asText("");
+                String code = node.get("code").asString();
+                String message = Optional.ofNullable(node.get("message")).map(JsonNode::asString).orElse("");
 
                 deliveryResult.complete(
                     new ServiceDeliverySession.DeliveryResult(sessionId, "OK".equals(code), message, null)
                 );
-
-                client.close();
-
                 break;
             default:
-                throw new IllegalArgumentException("Unsupported message type: " + node.get("type").asText());
+                throw new IllegalArgumentException("Unsupported message type: " + node.get("type").asString());
         }
     }
 
@@ -174,8 +214,23 @@ public class WsClient {
         }
     }
 
-    protected void respond(ObjectNode node) throws JsonProcessingException {
-        client.send(mapper.writeValueAsString(node));
+    protected void respond(ObjectNode node) {
+        if (client == null || client.isOutputClosed()) {
+            throw new IllegalStateException("WebSocket is not connected on sending: " + mapper.writeValueAsString(node));
+        }
+        client.sendText(mapper.writeValueAsString(node), true).join();
     }
 
+    private void close() {
+        WebSocket wsClient = client;
+        scheduler.shutdown();
+        if (wsClient != null && !wsClient.isOutputClosed()) {
+            wsClient
+                .sendClose(WebSocket.NORMAL_CLOSURE, "done")
+                .exceptionally(error -> {
+                    logger.debug("Failed to close websocket gracefully", error);
+                    return null;
+                });
+        }
+    }
 }

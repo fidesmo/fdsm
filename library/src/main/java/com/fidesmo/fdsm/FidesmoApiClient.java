@@ -21,14 +21,13 @@
  */
 package com.fidesmo.fdsm;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.core.util.DefaultIndenter;
-import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.core.util.DefaultIndenter;
+import tools.jackson.core.util.DefaultPrettyPrinter;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.HttpResponseException;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -38,7 +37,6 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.protocol.HttpClientContext;
-import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -49,7 +47,6 @@ import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -139,7 +136,7 @@ public class FidesmoApiClient {
         
         if (apidump != null) {
             apidump.println(put.getMethod() + ": " + put.getURI());
-            apidump.println(mapper.writer(printer).writeValueAsString(json));
+            apidump.println(mapper.writer().writeValueAsString(json));
         }
 
         return transmit(put);
@@ -151,7 +148,7 @@ public class FidesmoApiClient {
         
         if (apidump != null) {
             apidump.println(post.getMethod() + ": " + post.getURI());  
-            apidump.println(mapper.writer(printer).writeValueAsString(json));            
+            apidump.println(mapper.writer().with(printer).writeValueAsString(json));            
         }
 
         return transmit(post);
@@ -173,7 +170,7 @@ public class FidesmoApiClient {
         CloseableHttpResponse response = http.execute(request, context);
         int responseCode = response.getStatusLine().getStatusCode();
         if (responseCode < 200 || responseCode > 299) {
-            String message = response.getStatusLine() + "\n" + IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
+            String message = response.getStatusLine() + "\n" + new String(response.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
             response.close();
             throw new HttpResponseException(responseCode, message);
         }
@@ -188,7 +185,7 @@ public class FidesmoApiClient {
         final HttpRequestBase req;
         if (request != null) {
             HttpPost post = new HttpPost(uri);
-            post.setEntity(new ByteArrayEntity(mapper.writeValueAsBytes(request)));
+            post.setEntity(new StringEntity(mapper.writeValueAsString(request), ContentType.APPLICATION_JSON));
             req = post;
         } else {
             req = new HttpGet(uri);
@@ -197,7 +194,7 @@ public class FidesmoApiClient {
         if (apidump != null) {
             apidump.println(req.getMethod() + ": " + req.getURI());
             if (req.getMethod().equals("POST"))
-                apidump.println(mapper.writer(printer).writeValueAsString(request));
+                apidump.println(mapper.writer().with(printer).writeValueAsString(request));
         }
 
         try (CloseableHttpResponse response = transmit(req)) {
@@ -211,7 +208,7 @@ public class FidesmoApiClient {
                 // getContent will throw if bad response
                 JsonNode json = mapper.readTree(response.getEntity().getContent());
                 if (apidump != null) {
-                    apidump.println(mapper.writer(printer).writeValueAsString(json));
+                    apidump.println(mapper.writer().with(printer).writeValueAsString(json));
                 }
                 return json;
             }
@@ -257,14 +254,14 @@ public class FidesmoApiClient {
                 return langs.getOrDefault(Locale.getDefault().getLanguage(), langs.getOrDefault("en", first.getValue())).toString();
             }
         } else {
-            return n.asText();
+            return n.asString();
         }
     }
 
 
     public static String buildMessageWithParams(JsonNode n) {
 
-        String text =  n.path("text").asText();
+        String text =  n.path("text").asString();
 
         JsonNode paramsNode = n.path("params");
 
@@ -272,7 +269,7 @@ public class FidesmoApiClient {
         String[] params = new String[paramsNode.size()];
 
         for (int i = 0; i < paramsNode.size(); i++) {
-            params[i] = paramsNode.get(i).asText();
+            params[i] = paramsNode.get(i).asString();
         }
 
         Pattern p = Pattern.compile("\\{(\\d{1,3})\\}");

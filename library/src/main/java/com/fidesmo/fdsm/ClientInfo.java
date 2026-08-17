@@ -14,7 +14,6 @@ import java.util.stream.Collectors;
 import org.apache.http.Header;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.HttpHeaders;
-import org.apache.http.entity.ContentType;
 
 public class ClientInfo {
     public enum Capability {
@@ -79,9 +78,7 @@ public class ClientInfo {
             //Description format: platform/version;application/version/sdkVersion;deviceModel
             new BasicHeader("Fidesmo-Client-Description", String.format("fdsm/;%s/%s/%s;%s", name, version, getBuildVersion(), getOS())),
             new BasicHeader("Fidesmo-Client-Capabilities", capabilities.stream().map(Capability::stringify).collect(Collectors.joining(","))),
-            new BasicHeader(HttpHeaders.ACCEPT_LANGUAGE, this.locale.toLanguageTag()),
-            new BasicHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.toString()),
-            new BasicHeader(HttpHeaders.CONTENT_TYPE, ContentType.APPLICATION_JSON.toString())
+            new BasicHeader(HttpHeaders.ACCEPT_LANGUAGE, this.locale.toLanguageTag())
         );
     }
 

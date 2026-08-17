@@ -29,15 +29,15 @@ import apdu4j.pcsc.CardBIBO;
 import apdu4j.pcsc.SCard;
 import apdu4j.pcsc.TerminalManager;
 import apdu4j.pcsc.terminals.LoggingCardTerminal;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 import com.fidesmo.fdsm.FidesmoCard.ChipPlatform;
 import com.fidesmo.fdsm.exceptions.FDSMException;
 
 import jnasmartcardio.Smartcardio;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.io.FilenameUtils;
 import org.apache.http.client.HttpResponseException;
 import pro.javacard.AID;
 import pro.javacard.CAPFile;
@@ -57,7 +57,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.RunnableFuture;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -111,7 +110,7 @@ public class Main extends CommandLineInterface {
                 if (apps.size() > 0) {
                     List<byte[]> appids = new LinkedList<>();
                     for (JsonNode appid : apps) {
-                        appids.add(HexUtils.hex2bin(appid.asText()));
+                        appids.add(HexUtils.hex2bin(appid.asString()));
                     }
                     printApps(queryApps(client, appids, verbose), System.out, verbose);
                     success();
@@ -130,17 +129,20 @@ public class Main extends CommandLineInterface {
                     // DWIM: recipe
                     final URI toDelete;
                     if (id.toLowerCase().matches("[a-f0-9]{64}")) {
+                        confirm("Are you sure you want to delete the CAP file with ID: " + id);
                         toDelete = client.getURI(FidesmoApiClient.CAPFILES_ID_URL, getAppId(), id);
                     } else if (Files.exists(path)) {
                         // DWIM: capfile or recipe .json; This makes it the opposite of the upload operation
                         File f = path.toFile();
-                        String extension = FilenameUtils.getExtension(f.getName());
+                        String extension = fileExtension(f);
                         if (extension.equalsIgnoreCase("json")) {
-                            id = FilenameUtils.getBaseName(f.getName());
+                            id = fileBaseName(f);
+                            confirm("Are you sure you want to delete the recipe with ID: " + id);
                             toDelete = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, getAppId(), id);
                         } else if (extension.equalsIgnoreCase("cap")) {
                             CAPFile tmp = CAPFile.fromBytes(Files.readAllBytes(path));
                             id = HexUtils.bin2hex(tmp.getLoadFileDataHash("SHA-256"));
+                            confirm("Are you sure you want to delete the CAP file with ID: " + id);
                             toDelete = client.getURI(FidesmoApiClient.CAPFILES_ID_URL, getAppId(), id);
                         } else {
                             throw new IllegalArgumentException("Only .cap and .json files are supported: " + id);
@@ -150,9 +152,11 @@ public class Main extends CommandLineInterface {
                         ArrayNode recipes = (ArrayNode) client.rpc(client.getURI(FidesmoApiClient.RECIPE_SERVICES_URL, getAppId()));
                         String finalId = id;
                         id = StreamSupport.stream(recipes.spliterator(), false)
-                                .map(JsonNode::asText)
+                                .map(JsonNode::asString)
                                 .filter(r -> r.equals(finalId))
                                 .findFirst().orElseThrow(() -> new IllegalArgumentException("Not a recipe nor SHA-256: " + finalId));
+                        
+                        confirm("Are you sure you want to delete the recipe with ID: " + id);
                         toDelete = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, getAppId(), id);
                     }
 
@@ -174,19 +178,19 @@ public class Main extends CommandLineInterface {
                     if (applets.size() > 0) {
                         Map<String, Map<String, String>> r = new HashMap<>();
                         for (JsonNode e : applets) {
-                            String aid = e.get("elfAid").asText().toUpperCase();
+                            String aid = e.get("elfAid").asString().toUpperCase();
                             List<String> variant = new ArrayList<>();
                             if (e.has("javaCardVersion")) {
-                                variant.add("JC/" + e.get("javaCardVersion").asText());
+                                variant.add("JC/" + e.get("javaCardVersion").asString());
                             }
                             if (e.get("metadata").has("gp-version")) {
-                                variant.add("GP/" + e.get("metadata").get("gp-version").asText());
+                                variant.add("GP/" + e.get("metadata").get("gp-version").asString());
                             }
                             if (e.get("metadata").has("otv-version")) {
-                                variant.add(e.get("metadata").get("otv-version").asText());
+                                variant.add(e.get("metadata").get("otv-version").asString());
                             }
                             Map<String, String> ids = r.getOrDefault(aid, new HashMap<>());
-                            ids.put(e.get("id").asText(), String.join(", ", variant));
+                            ids.put(e.get("id").asString(), String.join(", ", variant));
                             r.put(aid, ids);
                         }
                         for (Map.Entry<String, Map<String, String>> e : r.entrySet()) {
@@ -204,28 +208,7 @@ public class Main extends CommandLineInterface {
                 if (args.has(OPT_LIST_RECIPES)) {
                     JsonNode recipes = client.rpc(client.getURI(FidesmoApiClient.RECIPE_SERVICES_URL, getAppId()));
                     if (recipes.size() > 0) {
-                        System.out.println(FidesmoApiClient.mapper.writer(FidesmoApiClient.printer).writeValueAsString(recipes));
-                    } else {
-                        success("No recipes");
-                    }
-                }
-
-                // Cleanup recipes
-                if (args.has(OPT_CLEANUP)) {
-                    JsonNode recipes = client.rpc(client.getURI(FidesmoApiClient.RECIPE_SERVICES_URL, getAppId()));
-                    int removed = 0;
-                    if (recipes.size() > 0) {
-                        for (JsonNode r : recipes) {
-                            try {
-                                UUID uuid = UUID.fromString(r.asText());
-                                URI recipe = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, getAppId(), uuid.toString());
-                                client.delete(recipe);
-                                removed = removed + 1;
-                            } catch (IllegalArgumentException e) {
-                                // Ignore recipes not matching uuid
-                            }
-                        }
-                        success("Cleaned up " + removed + " recipes");
+                        System.out.println(FidesmoApiClient.mapper.writer().with(FidesmoApiClient.printer).writeValueAsString(recipes));
                     } else {
                         success("No recipes");
                     }
@@ -233,19 +216,20 @@ public class Main extends CommandLineInterface {
 
                 if (args.has(OPT_UPLOAD)) {
                     File f = args.valueOf(OPT_UPLOAD);
-                    if (FilenameUtils.getExtension(f.getName()).equalsIgnoreCase("json")) {
-                        String name = FilenameUtils.getBaseName(f.getName());
-                        ObjectNode recipe = RecipeGenerator.mapper.readTree(Files.readAllBytes(f.toPath())).deepCopy();
-                        URI uri = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, getAppId(), name);
-                        client.put(uri, recipe).close();
+                    String extension = fileExtension(f);
+                    if (extension.equalsIgnoreCase("json")) {
+                        try {
+                            ObjectNode recipe = RecipeGenerator.mapper.readTree(Files.readAllBytes(f.toPath())).asObject().deepCopy();    
+                            URI uri = client.getURI(FidesmoApiClient.SERVICE_RECIPE_URL, getAppId(), fileBaseName(f));
+                            client.put(uri, recipe).close();
+                        } catch (JacksonException e) {
+                            System.err.println("Error reading recipe file: " + e.getMessage());
+                            System.err.println("Recipe should be a JSON object file with mandatory description, successMessage and failureMessage fields");
+                            System.exit(1);
+                        }                    
                     } else {
-                        CAPFile cap = CAPFile.fromStream(new FileInputStream(args.valueOf(OPT_UPLOAD)));
+                        CAPFile cap = CAPFile.fromStream(new FileInputStream(f));
                         client.upload(getAppId(), cap);
-                    }
-                } else if (args.has(OPT_FLUSH_APPLETS)) {
-                    JsonNode applets = client.rpc(client.getURI(FidesmoApiClient.CAPFILES_URL, getAppId()));
-                    for (JsonNode e : applets) {
-                        client.delete(client.getURI(FidesmoApiClient.CAPFILES_ID_URL, getAppId(), e.get("id").asText()));
                     }
                 }
             }
@@ -308,11 +292,11 @@ public class Main extends CommandLineInterface {
                             System.out.format("OS type: %s%n", FidesmoCard.detectPlatform(fidesmoCard.getCPLC()).map(ChipPlatform::toString).orElse("unknown"));
                         } else {
                             JsonNode device = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(fidesmoCard.getCIN()), fidesmoCard.getBatchId()));
-                            byte[] iin = HexUtils.decodeHexString_imp(device.get("iin").asText());
+                            byte[] iin = HexUtils.decodeHexString_imp(device.get("iin").asString());
                             // Read capabilities
                             JsonNode capabilities = device.get("description").get("capabilities");
                             int platformVersion = capabilities.get("platformVersion").asInt();
-                            String platform = Optional.ofNullable(capabilities.get("osTypeVersionName")).map(JsonNode::asText).orElse("unknown");
+                            String platform = Optional.ofNullable(capabilities.get("osTypeVersionName")).map(JsonNode::asString).orElse("unknown");
                             if (verbose)
                                 System.out.format("IIN: %s%n", HexUtils.bin2hex(iin));
                             System.out.format("OS type: %s (platform v%d)%n", platform, platformVersion);
@@ -411,7 +395,7 @@ public class Main extends CommandLineInterface {
                         JsonNode applets = client.rpc(client.getURI(FidesmoApiClient.CAPFILES_URL, getAppId()));
                         boolean present = false;
                         for (JsonNode e : applets) {
-                            if (Arrays.equals(Hex.decodeHex(e.get("id").asText()), lfdbh)) {
+                            if (Arrays.equals(Hex.decodeHex(e.get("id").asString()), lfdbh)) {
                                 present = true;
                             }
                         }
@@ -510,11 +494,11 @@ public class Main extends CommandLineInterface {
             if (!services.isEmpty()) {
                 for (JsonNode s : services) {
                     if (verbose) {
-                        JsonNode service = client.rpc(client.getURI(FidesmoApiClient.SERVICE_URL, appID, s.asText()));
+                        JsonNode service = client.rpc(client.getURI(FidesmoApiClient.SERVICE_URL, appID, s.asString()));
                         JsonNode d = service.get("description").get("description");
-                        fidesmoApp.addService(new FidesmoService(s.asText(), FidesmoApiClient.lamei18n(d)));
+                        fidesmoApp.addService(new FidesmoService(s.asString(), FidesmoApiClient.lamei18n(d)));
                     } else {
-                        fidesmoApp.addService(new FidesmoService(s.asText(), null));
+                        fidesmoApp.addService(new FidesmoService(s.asString(), null));
                     }
                 }
             }
@@ -558,12 +542,12 @@ public class Main extends CommandLineInterface {
         try {
             JsonNode v = client.rpc(new URI("https://api.fidesmo.com/fdsm-version"));
             // Convert both to numbers
-            String latestTag = v.get("tag_name").asText("v00.00.00");
+            String latestTag = v.get("tag_name").asString("v00.00.00");
             int latest = Integer.parseInt((latestTag.startsWith("v") ? latestTag.substring(1, 9) : latestTag.substring(0, 8)).replace(".", ""));
             String currentTag = ClientInfo.getBuildVersion();
             int current = Integer.parseInt((currentTag.startsWith("v") ? currentTag.substring(1, 9) : currentTag.substring(0, 8)).replace(".", ""));
             if (current < latest) {
-                System.out.println("Please download updated version from\n\n" + v.get("html_url").asText());
+                System.out.println("Please download updated version from\n\n" + v.get("html_url").asString());
             }
         } catch (Exception e) {
             // Do nothing.
@@ -607,6 +591,28 @@ public class Main extends CommandLineInterface {
         }
 
         return new CommandLineFormHandler(cliFields);
+    }
+
+    private static String fileExtension(File file) {
+        String name = file.getName();
+        int dot = name.lastIndexOf('.');
+        return dot > 0 && dot < name.length() - 1 ? name.substring(dot + 1): "";
+    }
+
+    private static String fileBaseName(File file) {
+        String name = file.getName();
+        int dot = name.lastIndexOf('.');
+        return dot > 0 && dot < name.length() - 1 ? name.substring(0, dot): name;
+    }
+
+    private static void confirm(String message) {
+        System.out.print(message + " (y/N): ");
+        try (Scanner scanner = new Scanner(System.in)) {
+            String response = scanner.nextLine().trim().toLowerCase();
+            if (!"y".equals(response)) {
+                System.exit(0);
+            }
+        }
     }
 
     private static AuthenticatedFidesmoApiClient getAuthenticatedClient() {

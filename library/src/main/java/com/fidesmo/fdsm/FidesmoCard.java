@@ -23,8 +23,8 @@ package com.fidesmo.fdsm;
 
 import apdu4j.core.*;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 import com.payneteasy.tlv.BerTag;
 import com.payneteasy.tlv.BerTlv;
 import com.payneteasy.tlv.BerTlvParser;
@@ -284,7 +284,7 @@ public class FidesmoCard {
                 JsonNode detect = client.rpc(uri);
                 
                 if (detect != null) {
-                    byte[] fid = Hex.decodeHex(detect.get("cin").asText());
+                    byte[] fid = Hex.decodeHex(detect.get("cin").asString());
                     int batchId = detect.get("batchId").asInt();
                     return Optional.of(new FidesmoCard(fid, cplc, batchId, false, uid));
                 }
@@ -442,7 +442,7 @@ public class FidesmoCard {
                 .map(value -> client.getURI(FidesmoApiClient.DEVICE_IDENTIFY_WITH_UID_URL, HexUtils.bin2hex(cplc), HexUtils.bin2hex(value)))
                 .orElse(client.getURI(FidesmoApiClient.DEVICE_IDENTIFY_URL, HexUtils.bin2hex(cplc)));
         JsonNode detect = client.rpc(uri);
-        return Optional.ofNullable(detect.get("batchingUrl")).map(n -> DeliveryUrl.parse(n.asText()));
+        return Optional.ofNullable(detect.get("batchingUrl")).map(n -> DeliveryUrl.parse(n.asString()));
     }
 
     public void ensureBatched(APDUBIBO bibo, FidesmoApiClient client, Optional<Integer> timeoutMinutes, boolean ignoreImplicitBatching, FormHandler formHandler) throws IOException, URISyntaxException {

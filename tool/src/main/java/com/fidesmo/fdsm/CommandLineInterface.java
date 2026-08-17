@@ -45,39 +45,41 @@ abstract class CommandLineInterface {
 
     final static protected OptionSpec<String> OPT_READER = parser.accepts("reader", "Specify reader to use").withRequiredArg().describedAs("reader");
     final static protected OptionSpec<String> OPT_LANGUAGE = parser.accepts("language", "Specify client language (IETF language tag format)").withRequiredArg().describedAs("language");
+
     final static protected OptionSpec<Void> OPT_TRACE_API = parser.accepts("trace-api", "Trace Fidesmo API");
     final static protected OptionSpec<Void> OPT_TRACE_APDU = parser.accepts("trace-apdu", "Trace APDU-s");
     final static protected OptionSpec<Void> OPT_VERBOSE = parser.accepts("verbose", "Be verbose");
 
-    final static protected OptionSpec<String> OPT_AUTH = parser.accepts("auth", "Use authentication credentials").withRequiredArg().describedAs("usr:pwd / token");
+    final static protected OptionSpec<String> OPT_AUTH = parser.accepts("auth", "Use authentication credentials. Alternatively, use the FIDESMO_AUTH environment variable.").withRequiredArg().describedAs("usr:pwd / token");
 
+    final static protected OptionSpec<File> OPT_INSTALL = parser.accepts("install", "Install CAP to card").withRequiredArg().ofType(File.class).describedAs("CAP file");
+    final static protected OptionSpec<String> OPT_UNINSTALL = parser.accepts("uninstall", "Uninstall CAP from card").withRequiredArg().describedAs("CAP file / AID");
     final static protected OptionSpec<HexBytes> OPT_STORE_DATA = parser.accepts("store-data", "STORE DATA to applet").withRequiredArg().ofType(HexBytes.class);
-    final static protected OptionSpec<String> OPT_APPLET = parser.accepts("applet", "Specify applet").requiredIf(OPT_STORE_DATA).withRequiredArg().describedAs("AID");
+    final static protected OptionSpec<HexBytes> OPT_SECURE_APDU = parser.accepts("secure-apdu", "Send APDU via secure channel").withRequiredArg().ofType(HexBytes.class);
+
+    final static protected OptionSpec<String> OPT_APPLET = parser.accepts("applet", "Specify applet AID for the install operation").requiredIf(OPT_STORE_DATA).withRequiredArg().describedAs("AID");
 
     final static protected OptionSpec<String> OPT_RUN = parser.accepts("run", "Run service").withRequiredArg().describedAs("appId/serviceId or URL");
-    final static protected OptionSpec<String> OPT_FIELDS = parser.accepts("fields", "Service parameters").withRequiredArg().describedAs("field=value,...");
+    final static protected OptionSpec<String> OPT_FIELDS = parser.accepts("fields", "Service parameters for delivery").withRequiredArg().describedAs("field=value,...");
 
-    final static protected OptionSpec<File> OPT_UPLOAD = parser.accepts("upload", "Upload CAP or recipe to Fidesmo").withRequiredArg().ofType(File.class).describedAs(".cap/.json file");
-    final static protected OptionSpec<Void> OPT_LIST_APPLETS = parser.accepts("list-applets", "List applets at Fidesmo");
+    final static protected OptionSpec<File> OPT_UPLOAD = parser.accepts("upload", "Upload CAP or recipe to the application specified by app-id").withRequiredArg().ofType(File.class).describedAs(".cap/.json file");
+    final static protected OptionSpec<Void> OPT_LIST_APPLETS = parser.accepts("list-applets", "List applets for the specified app-id at Fidesmo");
+    final static protected OptionSpec<Void> OPT_LIST_RECIPES = parser.accepts("list-recipes", "List recipes at Fidesmo");    
     final static protected OptionSpec<String> OPT_DELETE = parser.acceptsAll(List.of("delete", "delete-applet"), "Deletes applets and recipes at Fidesmo").withRequiredArg().describedAs("file/hash/recipe");
 
     final static protected OptionSpec<Void> OPT_CARD_APPS = parser.accepts("card-apps", "List apps on the card");
     final static protected OptionSpec<Void> OPT_CARD_INFO = parser.accepts("card-info", "Show info about the card");
     final static protected OptionSpec<Void> OPT_OFFLINE = parser.accepts("offline", "Do not connect to Fidesmo");
-    final static protected OptionSpec<HexBytes> OPT_SECURE_APDU = parser.accepts("secure-apdu", "Send APDU via secure channel").withRequiredArg().ofType(HexBytes.class);
 
     final static protected OptionSpec<String> OPT_STORE_APPS = parser.accepts("store-apps", "List apps in the store").withOptionalArg().describedAs("status");
-    final static protected OptionSpec<Void> OPT_FLUSH_APPLETS = parser.accepts("flush-applets", "Flush all applets from Fidesmo");
-    final static protected OptionSpec<Void> OPT_LIST_RECIPES = parser.accepts("list-recipes", "List recipes at Fidesmo");
     final static protected OptionSpec<Void> OPT_CLEANUP = parser.accepts("cleanup", "Clean up stale FDSM recipes");
-    final static protected OptionSpec<File> OPT_INSTALL = parser.accepts("install", "Install CAP to card").withRequiredArg().ofType(File.class).describedAs("CAP file");
-
+    
     final static protected OptionSpec<HexBytes> OPT_PARAMS = parser.accepts("params", "Installation parameters").withRequiredArg().ofType(HexBytes.class);
     final static protected OptionSpec<String> OPT_CREATE = parser.accepts("create", "Applet instance AID").withRequiredArg().describedAs("AID");
-    final static protected OptionSpec<String> OPT_UNINSTALL = parser.accepts("uninstall", "Uninstall CAP from card").withRequiredArg().describedAs("CAP file / AID");
+    
 
-    final static protected OptionSpec<String> OPT_APP_ID = parser.accepts("app-id", "Application identifier")
-            .availableIf(OPT_STORE_DATA, OPT_SECURE_APDU, OPT_UNINSTALL, OPT_INSTALL, OPT_UPLOAD, OPT_CLEANUP, OPT_LIST_APPLETS, OPT_FLUSH_APPLETS, OPT_DELETE)
+    final static protected OptionSpec<String> OPT_APP_ID = parser.accepts("app-id", "Application identifier. Can be set using FIDESMO_APPID environment variable")
+            .availableIf(OPT_STORE_DATA, OPT_SECURE_APDU, OPT_UNINSTALL, OPT_INSTALL, OPT_UPLOAD, OPT_CLEANUP, OPT_LIST_APPLETS, OPT_DELETE, OPT_LIST_RECIPES)
             .withRequiredArg().describedAs("appId");    
 
     final static protected OptionSpec<Integer> OPT_TIMEOUT = parser.accepts("timeout", "Timeout for services").withRequiredArg().ofType(Integer.class).describedAs("minutes");
@@ -132,6 +134,7 @@ abstract class CommandLineInterface {
                 System.err.println(e.getMessage());
             }
             System.err.println();
+            printUsageRecipes();
             parser.printHelpOn(System.err);
             System.exit(1);
         }
@@ -155,6 +158,15 @@ abstract class CommandLineInterface {
         return args;
     }
 
+    private static void printUsageRecipes() {
+        System.err.println("Examples:");
+        System.err.println("  Upload a CAP file or recipe:");
+        System.err.println("    fdsm --auth <token> --app-id <app-id> --upload <name>.json");
+        System.err.println("    fdsm --auth <token> --app-id <app-id> --upload <name>.cap");
+        System.err.println("  Run a service delivery:");
+        System.err.println("    fdsm --run <app-id>/<service-id>");
+    }
+
     public static boolean requiresCard() {
         OptionSpec<?>[] commands = new OptionSpec<?>[]{
                 OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_SECURE_APDU, OPT_RUN, OPT_CARD_APPS, OPT_CARD_INFO
@@ -164,7 +176,7 @@ abstract class CommandLineInterface {
 
     public static boolean requiresAuthentication() {
         OptionSpec<?>[] commands = new OptionSpec<?>[]{
-                OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_SECURE_APDU, OPT_UPLOAD, OPT_DELETE, OPT_FLUSH_APPLETS, OPT_CLEANUP, OPT_LIST_APPLETS, OPT_LIST_RECIPES
+                OPT_INSTALL, OPT_UNINSTALL, OPT_STORE_DATA, OPT_SECURE_APDU, OPT_UPLOAD, OPT_DELETE, OPT_CLEANUP, OPT_LIST_APPLETS, OPT_LIST_RECIPES
         };
         return Arrays.stream(commands).anyMatch(a -> args.has(a));
     }
