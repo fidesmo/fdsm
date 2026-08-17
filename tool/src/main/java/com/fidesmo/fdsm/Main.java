@@ -49,6 +49,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.URI;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -611,7 +613,7 @@ public class Main extends CommandLineInterface {
         }
         
         System.out.print(message + " (y/N): ");
-        try (Scanner scanner = new Scanner(System.in)) {
+        try (Scanner scanner = new Scanner(System.in, StandardCharsets.UTF_8)) {
             String response = scanner.nextLine().trim().toLowerCase();
             if (!"y".equals(response)) {
                 System.exit(0);
