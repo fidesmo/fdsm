@@ -25,11 +25,11 @@ import apdu4j.core.APDUBIBO;
 import apdu4j.core.BIBO;
 import apdu4j.core.BIBOException;
 import apdu4j.core.HexUtils;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.node.ObjectNode;
 import com.fidesmo.fdsm.exceptions.FDSMException;
 import com.fidesmo.fdsm.exceptions.NoAccessToDeviceException;
 import com.fidesmo.fdsm.exceptions.ServiceNotAvailableException;
@@ -114,7 +114,7 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
         card.selectEmpty(apduBibo);
         // Address #4
         JsonNode deviceInfo = client.rpc(client.getURI(FidesmoApiClient.DEVICES_URL, HexUtils.bin2hex(card.getCIN()), card.getBatchId()));
-        byte[] iin = HexUtils.decodeHexString_imp(deviceInfo.get("iin").asText());
+        byte[] iin = HexUtils.decodeHexString_imp(deviceInfo.get("iin").asString());
         JsonNode capabilities = deviceInfo.get("description").get("capabilities");
         int platformVersion = capabilities.get("platformVersion").asInt();
 
@@ -145,7 +145,7 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
             try {
                 CertificateFactory cf = CertificateFactory.getInstance("X509");
                 X509Certificate cert = (X509Certificate) cf.generateCertificate(
-                        new ByteArrayInputStream(HexUtils.hex2bin(description.get("certificate").asText()))
+                        new ByteArrayInputStream(HexUtils.hex2bin(description.get("certificate").asString()))
                 );
                 spKey = cert.getPublicKey();
             } catch (GeneralSecurityException e) {
@@ -194,7 +194,7 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
             } else throw e;
         }
         
-        String sessionId = delivery.get("sessionId").asText();
+        String sessionId = delivery.get("sessionId").asString();
 
         logger.info("Delivering: {}", FidesmoApiClient.lamei18n(description.get("title")));
         logger.info("Session ID: {}", sessionId);
@@ -243,7 +243,7 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
 
                 // Process operations
                 deliveryInterruptionPoint();
-                String operationType = fetch.get("operationType").asText();
+                String operationType = fetch.get("operationType").asString();
                 switch (operationType) {
                     case "transceive":
                         fetchrequest = processTransmitOperation(bibo, fetch.get("operationId"), sessionId);
@@ -284,7 +284,7 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
                 ArrayList<String> responses = new ArrayList<>();
                 for (JsonNode cmd : commands) {
                     deliveryInterruptionPoint();
-                    responses.add(HexUtils.bin2hex(bibo.transceive(HexUtils.hex2bin(cmd.asText()))));
+                    responses.add(HexUtils.bin2hex(bibo.transceive(HexUtils.hex2bin(cmd.asString()))));
                 }
 
                 transmitrequest.set("responses", mapper.valueToTree(responses));
@@ -359,7 +359,7 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
                     String[] date = elements[1].split("/");
                     // Construct JSON
                     ObjectNode paymentcard = JsonNodeFactory.instance.objectNode();
-                    paymentcard.put("cardNumber", elements[0]);
+                    paymentcard.put("cardNumber", elements[0].replaceAll("- ", ""));
                     paymentcard.put("expiryMonth", Integer.parseInt(date[0]));
                     paymentcard.put("expiryYear", Integer.parseInt(date[1]));
 
@@ -408,12 +408,12 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
         JsonNode commands = operation.get("actions");
         for (JsonNode cmd : commands) {
             deliveryInterruptionPoint();
-            String action = cmd.get("name").asText();
+            String action = cmd.get("name").asString();
             switch (action) {
                 case "phonecall":
                     // TODO: have all in one callback and utilize ConfirmationCallback
                     TextOutputCallback cb1 = new TextOutputCallback(TextOutputCallback.INFORMATION, FidesmoApiClient.lamei18n(cmd.get("description")));
-                    TextOutputCallback cb2 = new TextOutputCallback(TextOutputCallback.INFORMATION, "Please call " + cmd.get("parameters").get("number").asText());
+                    TextOutputCallback cb2 = new TextOutputCallback(TextOutputCallback.INFORMATION, "Please call " + cmd.get("parameters").get("number").asString());
                     TextInputCallback cb3 = new TextInputCallback("Press ENTER to continue"); // XXX: a bit tied to the implementation
                     formHandler.handle(new Callback[]{cb1, cb2, cb3});
                     break;
@@ -492,7 +492,7 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
             JsonNode labels = fieldNode.get("labels");
             if (labels != null && labels.isArray()) {
                 ArrayNode a = (ArrayNode) labels;
-                a.elements().forEachRemaining(e -> labelsList.add(FidesmoApiClient.lamei18n(e)));
+                a.elements().forEach(e -> labelsList.add(FidesmoApiClient.lamei18n(e)));
             } else {
                 String label = FidesmoApiClient.lamei18n(fieldNode.get("label"));
                 
@@ -501,10 +501,10 @@ public class ServiceDeliverySession implements Callable<ServiceDeliverySession.D
                 }
             }
             fields.add(new Field(
-                fieldNode.get("id").asText(),
+                fieldNode.get("id").asString(),
                 labelsList,
-                fieldNode.get("type").asText(),
-                Optional.ofNullable(fieldNode.get("format")).map(JsonNode::asText)
+                fieldNode.get("type").asString(),
+                Optional.ofNullable(fieldNode.get("format")).map(JsonNode::asString)
             ));
         }
 

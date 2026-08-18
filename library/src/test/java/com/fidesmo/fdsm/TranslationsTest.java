@@ -1,16 +1,15 @@
 package com.fidesmo.fdsm;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.testng.annotations.Test;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.testng.Assert.assertEquals;
 
 public class TranslationsTest {
 
   //  @Test
-    public void returnMessagesInOldFormat() throws JsonProcessingException {
+    public void returnMessagesInOldFormat() {
         String jsonString = "{ \"fr\" : \"Connecter votre carte de paiement\",\n" +
                 "      \"it\" : \"Associa carta di pagamento\",\n" +
                 "      \"nl\" : \"Koppel uw betaalkaart\",\n" +
@@ -25,7 +24,7 @@ public class TranslationsTest {
         assertEquals(FidesmoApiClient.lamei18n(jsonNode), "Connect payment card");
     }
    @Test
-    public void returnMessagesInNewFormatWithParams() throws JsonProcessingException {
+    public void returnMessagesInNewFormatWithParams() {
         String jsonString = "{  \"id\": \"service.statuses.success\", \"text\": \"Congrats! Now you can pay with your {0}\", \"params\": [ \"Ring!\" ] }";
 
         // Parse JSON to JsonNode
@@ -36,7 +35,7 @@ public class TranslationsTest {
     }
 
     @Test
-    public void returnMessagesInNewFormatWithMultipleParams() throws JsonProcessingException {
+    public void returnMessagesInNewFormatWithMultipleParams() {
         String jsonString = "{  \"id\": \"service.statuses.success\", \"text\": \"Congrats! Now you can pay with your {0} from {1}\", \"params\": [ \"Ring!\", \"your bank\" ] }";
 
         // Parse JSON to JsonNode
@@ -47,7 +46,7 @@ public class TranslationsTest {
     }
 
     @Test
-    public void returnMessagesInNewFormatWithApostrophes() throws JsonProcessingException {
+    public void returnMessagesInNewFormatWithApostrophes() {
         String jsonString = "{  \"id\": \"service.statuses.success\", \"text\": \"You're now able to pay with your {0}\", \"params\": [ \"Ring!\"] }";
 
         ObjectMapper objectMapper = new ObjectMapper();
@@ -57,7 +56,7 @@ public class TranslationsTest {
     }
 
     @Test
-    public void returnMessagesInNewFormatWithoutParams() throws JsonProcessingException {
+    public void returnMessagesInNewFormatWithoutParams() {
         String jsonString = "{  \"id\": \"service.statuses.success\", \"text\": \"Your card has been removed\"}";
 
         ObjectMapper objectMapper = new ObjectMapper();
@@ -66,7 +65,7 @@ public class TranslationsTest {
         assertEquals(FidesmoApiClient.lamei18n(jsonNode), "Your card has been removed");
     }
     @Test
-    public void returnMessagesInNewFormatWithEmptyParams() throws JsonProcessingException {
+    public void returnMessagesInNewFormatWithEmptyParams() {
         String jsonString = "{  \"id\": \"service.statuses.success\", \"text\": \"Your card has been removed\", \"params\": []}";
 
         ObjectMapper objectMapper = new ObjectMapper();
