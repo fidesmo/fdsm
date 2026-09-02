@@ -54,7 +54,7 @@ public class WsClient {
     private final URI uri;
     private final Map<String, String> headers;
     private final BIBO card;
-    private WebSocket client;
+    private volatile WebSocket client;
     private final CompletableFuture<ServiceDeliverySession.DeliveryResult> deliveryResult = new CompletableFuture<>();
     private String sessionId;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
@@ -91,9 +91,6 @@ public class WsClient {
                 deliveryResult.completeExceptionally(error);
                 return;
             }
-
-            client = webSocket;
-
             scheduler.scheduleAtFixedRate(() -> {
                 if (client != null) {
                     client.sendPing(ByteBuffer.wrap(new byte[] {1})).exceptionally(ex -> {
@@ -127,6 +124,7 @@ public class WsClient {
             private final StringBuilder incomingMessage = new StringBuilder();
             @Override
             public void onOpen(WebSocket webSocket) {
+                client = webSocket;                
                 webSocket.request(1);
             }
 
@@ -141,7 +139,7 @@ public class WsClient {
                 
                 String message = incomingMessage.toString();
                 incomingMessage.setLength(0);
-            
+
                 try {
                     processCommand(mapper.readTree(message));
                 } catch (IOException | DecoderException | BIBOException e) {
@@ -222,6 +220,7 @@ public class WsClient {
     }
 
     private void close() {
+        logger.debug("Closing websocket");
         WebSocket wsClient = client;
         scheduler.shutdown();
         if (wsClient != null && !wsClient.isOutputClosed()) {
